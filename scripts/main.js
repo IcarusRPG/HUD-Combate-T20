@@ -48,7 +48,6 @@ async function renderHUD(actor) {
   document.querySelectorAll(".t20-button").forEach(button => {
     button.addEventListener("click", () => {
       const tab = button.dataset.tab;
-
       const selectedActor = canvas.tokens.controlled[0]?.actor;
       if (!selectedActor) return;
 
@@ -94,7 +93,7 @@ async function renderHUD(actor) {
               const valor = pericia?.value ?? 0;
 
               const roll = new Roll(`1d20 + ${valor}`);
-              await roll.roll({ async: true });
+              await roll.evaluate({ async: true });
 
               if (game.dice3d) await game.dice3d.showForRoll(roll, game.user, true);
 
@@ -135,28 +134,34 @@ async function renderHUD(actor) {
 
           const ataqueFormula = ataqueRollData.parts.map(p => p[0]).join(" + ");
           const danoFormula = danoRollData.parts.map(p => p[0]).join(" + ");
+          const rollData = selectedActor.getRollData?.() ?? {};
 
-          const ataqueRoll = new Roll(ataqueFormula, selectedActor.getRollData());
-          const danoRoll = new Roll(danoFormula, selectedActor.getRollData());
+          try {
+            const ataqueRoll = new Roll(ataqueFormula, rollData);
+            const danoRoll = new Roll(danoFormula, rollData);
 
-          await ataqueRoll.roll({ async: true });
-          await danoRoll.roll({ async: true });
+            await ataqueRoll.evaluate({ async: true });
+            await danoRoll.evaluate({ async: true });
 
-          if (game.dice3d) {
-            await game.dice3d.showForRoll(ataqueRoll, game.user, true);
-            await game.dice3d.showForRoll(danoRoll, game.user, true);
+            if (game.dice3d) {
+              await game.dice3d.showForRoll(ataqueRoll, game.user, true);
+              await game.dice3d.showForRoll(danoRoll, game.user, true);
+            }
+
+            ChatMessage.create({
+              speaker: ChatMessage.getSpeaker({ actor: selectedActor }),
+              flavor: `Ataque com ${arma.name}`,
+              content: `
+                <strong>Rolagem de Ataque:</strong> ${ataqueRoll.total} <br/>
+                <em>${ataqueRoll.formula}</em><br/><br/>
+                <strong>Dano:</strong> ${danoRoll.total} <br/>
+                <em>${danoRoll.formula}</em>
+              `
+            });
+          } catch (err) {
+            console.error("Erro ao avaliar fórmula:", err);
+            ui.notifications.error(`Erro ao rolar ataque com ${arma.name}: ${err.message}`);
           }
-
-          ChatMessage.create({
-            speaker: ChatMessage.getSpeaker({ actor: selectedActor }),
-            flavor: `Ataque com ${arma.name}`,
-            content: `
-              <strong>Rolagem de Ataque:</strong> ${ataqueRoll.total} <br/>
-              <em>${ataqueRoll.formula}</em><br/><br/>
-              <strong>Dano:</strong> ${danoRoll.total} <br/>
-              <em>${danoRoll.formula}</em>
-            `
-          });
         };
 
         if (armas.length === 1) {
