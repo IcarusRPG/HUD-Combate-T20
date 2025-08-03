@@ -9,17 +9,12 @@ Hooks.once("init", () => {
   });
 });
 
-Hooks.once("ready", async () => {
-  if (!game.settings.get("hud-combate-t20", "exibirBarra")) return;
-  if (document.querySelector(".t20-quickbar")) return;
+async function renderHUD(actor) {
+  // Remove HUD anterior, se houver
+  const existing = document.querySelector(".t20-quickbar");
+  if (existing) existing.remove();
 
-  const controlled = canvas.tokens.controlled[0];
-  if (!controlled || !controlled.actor) {
-    ui.notifications.warn("Nenhum token controlado para mostrar HUD.");
-    return;
-  }
-
-  const actor = controlled.actor;
+  if (!actor) return;
 
   const buttons = [
     { id: "pericias", label: "PERÍCIAS", icon: "modules/hud-combate-t20/img/pericias.png", tab: "pericias" },
@@ -32,9 +27,9 @@ Hooks.once("ready", async () => {
     buttons,
     img: actor.img,
     nome: actor.name,
-    pv: actor.system?.attributes?.pv?.value ?? "—",
-    pm: actor.system?.attributes?.pm?.value ?? "—",
-    def: actor.system?.defesa?.total ?? "—"
+    pv: `${actor.system?.attributes?.pv?.atual ?? "—"} / ${actor.system?.attributes?.pv?.max ?? "—"}`,
+    pm: `${actor.system?.attributes?.pm?.atual ?? "—"} / ${actor.system?.attributes?.pm?.max ?? "—"}`,
+    def: actor.system?.defesa?.total ?? actor.system?.defesa ?? "—"
   };
 
   const html = await renderTemplate("modules/hud-combate-t20/templates/quick-actions.hbs", context);
@@ -48,5 +43,26 @@ Hooks.once("ready", async () => {
       const tab = button.dataset.tab;
       ui.notifications.info(`Você clicou em: ${tab}`);
     });
+  });
+}
+
+Hooks.once("ready", async () => {
+  if (!game.settings.get("hud-combate-t20", "exibirBarra")) return;
+
+  const controlled = canvas.tokens.controlled[0];
+  const actor = controlled?.actor;
+  await renderHUD(actor);
+
+  // Atualiza HUD ao mudar o token selecionado
+  Hooks.on("controlToken", async (token, controlled) => {
+    if (controlled) await renderHUD(token.actor);
+  });
+
+  // Atualiza HUD ao mudar PV, PM ou DEF
+  Hooks.on("updateActor", async (actorUpdated, data, options, userId) => {
+    const current = canvas.tokens.controlled[0];
+    if (current?.actor?.id === actorUpdated.id) {
+      await renderHUD(actorUpdated);
+    }
   });
 });
