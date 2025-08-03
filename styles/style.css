@@ -1,18 +1,16 @@
-/* Barra rápida T20 */
 .t20-quickbar {
-  width: 100%;
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  background: rgba(20, 10, 5, 0.9);
+  border: 2px solid #aa7e39;
+  padding: 5px 10px;
+  border-radius: 8px;
   display: flex;
-  justify-content: center;
-  background: linear-gradient(to right, #2c1d0b, #3d2912);
-  border-bottom: 2px solid #aa7e39;
-  padding: 5px 0;
-  box-shadow: 0 2px 6px #00000080;
-  margin-bottom: 10px;
-}
-
-.t20-quickbar-inner {
-  display: flex;
-  gap: 15px;
+  gap: 12px;
+  box-shadow: 0 0 10px #000000aa;
 }
 
 .t20-button {
