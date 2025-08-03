@@ -35,6 +35,7 @@ Hooks.on('ready', () => {
 
   document.body.appendChild(hud);
 
+  // Perícias
   document.getElementById('btn-pericias').addEventListener('click', () => {
     const pericias = actor.system.pericias;
     const options = Object.entries(pericias)
@@ -64,10 +65,16 @@ Hooks.on('ready', () => {
             const bonus = actor.system.pericias[key].total;
             const roll = new Roll(`1d20 + ${bonus}`);
             roll.evaluate({ async: false });
+
             roll.toMessage({
               speaker: ChatMessage.getSpeaker({ actor }),
-              flavor: `Teste de ${key.charAt(0).toUpperCase() + key.slice(1)}`
+              flavor: `Teste de ${key.charAt(0).toUpperCase() + key.slice(1)}`,
+              rollMode: game.settings.get("core", "rollMode")
             });
+
+            if (game.dice3d) {
+              game.dice3d.showForRoll(roll);
+            }
           }
         }
       },
@@ -81,6 +88,7 @@ Hooks.on('ready', () => {
     }).render(true);
   });
 
+  // Atalhos para a ficha
   document.getElementById('btn-poderes').addEventListener('click', () => {
     actor.sheet.render(true);
     actor.sheet._tabs.activate('features');
