@@ -1,3 +1,4 @@
+// main.js
 Hooks.once("init", () => {
   game.settings.register("hud-combate-t20", "exibirBarra", {
     name: "Ativar HUD de Combate T20",
@@ -158,6 +159,38 @@ async function renderHUD(actor) {
           }
         });
 
+        d.render(true);
+        return;
+      }
+
+      if (tab === "poderes") {
+        const poderes = selectedActor.items.filter(i => i.type === "poder");
+        const conteudo = poderes.map(poder => `
+          <div class="poder-item" data-item-id="${poder.id}">
+            <img src="${poder.img}" title="${poder.name}: ${poder.system.description?.value || ""}" />
+            <span>${poder.name}</span>
+          </div>
+        `).join("");
+
+        const html = `<div class="poderes-lista">${conteudo}</div>`;
+        const d = new Dialog({
+          title: `Poderes de ${selectedActor.name}`,
+          content: html,
+          buttons: {
+            fechar: { label: "Fechar" }
+          },
+          render: html => {
+            html.find(".poder-item").on("click", async function () {
+              const itemId = $(this).data("item-id");
+              const item = selectedActor.items.get(itemId);
+              if (!item?.sheet || typeof item.sheet._onItemRoll !== "function") {
+                ui.notifications.warn("Poder não pode ser usado.");
+                return;
+              }
+              item.sheet._onItemRoll.call(item.sheet, { shiftKey: true });
+            });
+          }
+        });
         d.render(true);
         return;
       }
