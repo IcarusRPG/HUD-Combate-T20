@@ -28,7 +28,7 @@ async function renderHUD(actor) {
     nome: actor.name,
     pv: `${actor.system?.attributes?.pv?.value ?? "—"} / ${actor.system?.attributes?.pv?.max ?? "—"}`,
     pm: `${actor.system?.attributes?.pm?.value ?? "—"} / ${actor.system?.attributes?.pm?.max ?? "—"}`,
-    def: actor.system?.defesa?.total ?? "—"
+    def: actor.system?.attributes?.defesa?.value ?? "—"
   };
 
   const html = await renderTemplate("modules/hud-combate-t20/templates/quick-actions.hbs", context);
@@ -52,10 +52,12 @@ Hooks.once("ready", async () => {
   const actor = controlled?.actor;
   await renderHUD(actor);
 
+  // Atualiza HUD ao mudar o token selecionado
   Hooks.on("controlToken", async (token, controlled) => {
     if (controlled) await renderHUD(token.actor);
   });
 
+  // Atualiza HUD ao mudar PV, PM ou Defesa
   Hooks.on("updateActor", async (actorUpdated, data, options, userId) => {
     const current = canvas.tokens.controlled[0];
     if (current?.actor?.id === actorUpdated.id) {
