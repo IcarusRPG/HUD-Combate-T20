@@ -123,59 +123,13 @@ async function renderHUD(actor) {
           return;
         }
 
-        const rolarAtaqueEDano = async (arma) => {
-          const ataqueRollData = arma.system.rolls.find(r => r.type === "ataque");
-          const danoRollData = arma.system.rolls.find(r => r.type === "dano");
-
-          if (!ataqueRollData || !danoRollData) {
-            ui.notifications.warn("A arma selecionada não possui rolagens configuradas.");
-            return;
-          }
-
-          const normalizarFormula = (parts) => {
-            return parts.map(p => {
-              const termo = p[0].trim();
-              if (["luta", "pontaria", "fortitude", "reflexos", "vontade"].includes(termo)) {
-                return `@attributes.${termo}.total`;
-              }
-              return termo;
-            }).join(" + ");
-          };
-
-          const ataqueFormula = normalizarFormula(ataqueRollData.parts);
-          const danoFormula = normalizarFormula(danoRollData.parts);
-          const rollData = selectedActor.getRollData?.() ?? {};
-
-          try {
-            const ataqueRoll = new Roll(ataqueFormula, rollData);
-            const danoRoll = new Roll(danoFormula, rollData);
-
-            await ataqueRoll.evaluate();
-            await danoRoll.evaluate();
-
-            if (game.dice3d) {
-              await game.dice3d.showForRoll(ataqueRoll, game.user, true);
-              await game.dice3d.showForRoll(danoRoll, game.user, true);
-            }
-
-            ChatMessage.create({
-              speaker: ChatMessage.getSpeaker({ actor: selectedActor }),
-              flavor: `Ataque com ${arma.name}`,
-              content: `
-                <strong>Rolagem de Ataque:</strong> ${ataqueRoll.total} <br/>
-                <em>${ataqueRoll.formula}</em><br/><br/>
-                <strong>Dano:</strong> ${danoRoll.total} <br/>
-                <em>${danoRoll.formula}</em>
-              `
-            });
-          } catch (err) {
-            console.error("Erro ao avaliar fórmula:", err);
-            ui.notifications.error(`Erro ao rolar ataque com ${arma.name}: ${err.message}`);
-          }
+        const abrirJanelaDeAtaque = (arma) => {
+          const fakeEvent = new MouseEvent("click", { shiftKey: true });
+          arma.sheet._onItemRoll(fakeEvent, true);
         };
 
         if (armas.length === 1) {
-          rolarAtaqueEDano(armas[0]);
+          abrirJanelaDeAtaque(armas[0]);
           return;
         }
 
@@ -184,7 +138,7 @@ async function renderHUD(actor) {
           <select id="armaSelect">
             ${armas.map(a => `<option value="${a.id}">${a.name}</option>`).join("")}
           </select>
-          <button id="confirmarAtaque">Atacar</button>
+          <button id="confirmarAtaque">Abrir Janela</button>
         `;
 
         const d = new Dialog({
@@ -195,10 +149,10 @@ async function renderHUD(actor) {
             const select = html[0].querySelector("#armaSelect");
             const btn = html[0].querySelector("#confirmarAtaque");
 
-            btn.addEventListener("click", async () => {
+            btn.addEventListener("click", () => {
               const armaId = select.value;
               const arma = armas.find(a => a.id === armaId);
-              await rolarAtaqueEDano(arma);
+              abrirJanelaDeAtaque(arma);
               d.close();
             });
           }
