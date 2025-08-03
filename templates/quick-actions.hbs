@@ -1,17 +1,20 @@
-<div class="hud-container">
-  <div class="hud-left">
-    <img class="hud-img" src="{{img}}" />
-    <div class="hud-info">
-      <strong>{{name}}</strong><br>
-      PV: {{pvAtual}} / {{pvTotal}}<br>
-      PM: {{pmAtual}} / {{pmTotal}}<br>
-      DEF: {{defesa}}
+<div class="t20-quickbar">
+  <div class="t20-quickbar-inner">
+    <div class="t20-info">
+      <img class="t20-avatar" src="{{img}}" alt="{{nome}}" />
+      <div class="t20-nome">{{nome}}</div>
+      <div class="t20-atributos">
+        <div><strong>PV:</strong> {{pv}}</div>
+        <div><strong>PM:</strong> {{pm}}</div>
+        <div><strong>DEF:</strong> {{def}}</div>
+      </div>
     </div>
-  </div>
-  <div class="hud-buttons">
-    <button id="btn-pericias"><img src="modules/hud-combate-t20/img/pericias.png" title="Perícias" /></button>
-    <button id="btn-poderes"><img src="modules/hud-combate-t20/img/poderes.png" title="Poderes" /></button>
-    <button id="btn-magias"><img src="modules/hud-combate-t20/img/magias.png" title="Magias" /></button>
-    <button id="btn-inventario"><img src="modules/hud-combate-t20/img/inventario.png" title="Inventário" /></button>
+    <div class="t20-buttons">
+      {{#each buttons}}
+        <div class="t20-button" data-tab="{{tab}}" title="{{label}}">
+          <img src="{{icon}}" alt="{{label}}" />
+        </div>
+      {{/each}}
+    </div>
   </div>
 </div>
