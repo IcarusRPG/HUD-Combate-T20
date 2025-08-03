@@ -124,8 +124,8 @@ async function renderHUD(actor) {
         }
 
         const abrirJanelaDeAtaque = (arma) => {
-          const fakeEvent = new MouseEvent("click", { shiftKey: true });
-          arma.sheet._onItemRoll(fakeEvent, true);
+          const event = new MouseEvent("click", { shiftKey: true });
+          arma.roll({ event });
         };
 
         if (armas.length === 1) {
