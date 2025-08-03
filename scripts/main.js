@@ -93,7 +93,7 @@ async function renderHUD(actor) {
               const valor = pericia?.value ?? 0;
 
               const roll = new Roll(`1d20 + ${valor}`);
-              await roll.evaluate({ async: true });
+              await roll.evaluate();
 
               if (game.dice3d) await game.dice3d.showForRoll(roll, game.user, true);
 
@@ -132,16 +132,26 @@ async function renderHUD(actor) {
             return;
           }
 
-          const ataqueFormula = ataqueRollData.parts.map(p => p[0]).join(" + ");
-          const danoFormula = danoRollData.parts.map(p => p[0]).join(" + ");
+          const normalizarFormula = (parts) => {
+            return parts.map(p => {
+              const termo = p[0].trim();
+              if (["luta", "pontaria", "fortitude", "reflexos", "vontade"].includes(termo)) {
+                return `@attributes.${termo}.total`;
+              }
+              return termo;
+            }).join(" + ");
+          };
+
+          const ataqueFormula = normalizarFormula(ataqueRollData.parts);
+          const danoFormula = normalizarFormula(danoRollData.parts);
           const rollData = selectedActor.getRollData?.() ?? {};
 
           try {
             const ataqueRoll = new Roll(ataqueFormula, rollData);
             const danoRoll = new Roll(danoFormula, rollData);
 
-            await ataqueRoll.evaluate({ async: true });
-            await danoRoll.evaluate({ async: true });
+            await ataqueRoll.evaluate();
+            await danoRoll.evaluate();
 
             if (game.dice3d) {
               await game.dice3d.showForRoll(ataqueRoll, game.user, true);
