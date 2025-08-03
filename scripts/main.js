@@ -10,7 +10,6 @@ Hooks.once("init", () => {
 });
 
 async function renderHUD(actor) {
-  // Remove HUD anterior, se houver
   const existing = document.querySelector(".t20-quickbar");
   if (existing) existing.remove();
 
@@ -27,9 +26,9 @@ async function renderHUD(actor) {
     buttons,
     img: actor.img,
     nome: actor.name,
-    pv: `${actor.system?.attributes?.pv?.atual ?? "—"} / ${actor.system?.attributes?.pv?.max ?? "—"}`,
-    pm: `${actor.system?.attributes?.pm?.atual ?? "—"} / ${actor.system?.attributes?.pm?.max ?? "—"}`,
-    def: actor.system?.defesa?.total ?? actor.system?.defesa ?? "—"
+    pv: `${actor.system?.attributes?.pv?.value ?? "—"} / ${actor.system?.attributes?.pv?.max ?? "—"}`,
+    pm: `${actor.system?.attributes?.pm?.value ?? "—"} / ${actor.system?.attributes?.pm?.max ?? "—"}`,
+    def: actor.system?.defesa?.total ?? "—"
   };
 
   const html = await renderTemplate("modules/hud-combate-t20/templates/quick-actions.hbs", context);
@@ -53,12 +52,10 @@ Hooks.once("ready", async () => {
   const actor = controlled?.actor;
   await renderHUD(actor);
 
-  // Atualiza HUD ao mudar o token selecionado
   Hooks.on("controlToken", async (token, controlled) => {
     if (controlled) await renderHUD(token.actor);
   });
 
-  // Atualiza HUD ao mudar PV, PM ou DEF
   Hooks.on("updateActor", async (actorUpdated, data, options, userId) => {
     const current = canvas.tokens.controlled[0];
     if (current?.actor?.id === actorUpdated.id) {
