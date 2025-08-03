@@ -1,17 +1,20 @@
 <div class="t20-quickbar">
-  <div class="t20-info">
-    <img class="portrait" src="{{img}}" alt="{{nome}}" />
-    <div class="status">
-      PV: {{pv}}<br>
-      PM: {{pm}}<br>
-      DEF: {{def}}
-    </div>
-  </div>
   <div class="t20-quickbar-inner">
-    {{#each buttons}}
-      <div class="t20-button" data-tab="{{this.tab}}" title="{{this.label}}">
-        <img src="{{this.icon}}" alt="{{this.label}}" />
+    <div class="t20-info">
+      <img class="t20-avatar" src="{{img}}" alt="{{nome}}" />
+      <div class="t20-nome">{{nome}}</div>
+      <div class="t20-atributos">
+        <div><strong>PV:</strong> {{pv}}</div>
+        <div><strong>PM:</strong> {{pm}}</div>
+        <div><strong>DEF:</strong> {{def}}</div>
       </div>
-    {{/each}}
+    </div>
+    <div class="t20-buttons">
+      {{#each buttons}}
+        <div class="t20-button" data-tab="{{tab}}" title="{{label}}">
+          <img src="{{icon}}" alt="{{label}}" />
+        </div>
+      {{/each}}
+    </div>
   </div>
 </div>

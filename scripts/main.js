@@ -40,6 +40,74 @@ async function renderHUD(actor) {
   document.querySelectorAll(".t20-button").forEach(button => {
     button.addEventListener("click", () => {
       const tab = button.dataset.tab;
+
+      if (tab === "pericias") {
+        const actor = canvas.tokens.controlled[0]?.actor;
+        if (!actor) return;
+
+        const pericias = actor.system.pericias;
+        const periciaList = Object.entries(pericias).map(([key, value]) => ({
+          key,
+          label: game.i18n.localize(value.label || key),
+          value: value.value
+        }));
+
+        const dialogContent = `
+          <div style="display: flex; flex-direction: column; gap: 10px; font-family: sans-serif;">
+            <label for="periciaSelect">Escolha a Perícia:</label>
+            <select id="periciaSelect">
+              ${periciaList.map(p => `<option value="${p.key}">${p.label}</option>`).join("")}
+            </select>
+            <div id="periciaValor">Valor: ${periciaList[0].value}</div>
+            <button id="rolarTeste">🎲 Rolar Teste</button>
+          </div>
+        `;
+
+        const d = new Dialog({
+          title: "Teste de Perícia",
+          content: dialogContent,
+          buttons: {
+            fechar: { label: "Fechar" }
+          },
+          close: () => {}
+        });
+
+        d.render(true);
+
+        Hooks.once("renderDialog", () => {
+          const select = document.getElementById("periciaSelect");
+          const valorSpan = document.getElementById("periciaValor");
+          const rolarBtn = document.getElementById("rolarTeste");
+
+          select.addEventListener("change", () => {
+            const selKey = select.value;
+            const valor = actor.system.pericias[selKey]?.value ?? 0;
+            valorSpan.innerText = `Valor: ${valor}`;
+          });
+
+          rolarBtn.addEventListener("click", async () => {
+            const selKey = select.value;
+            const pericia = actor.system.pericias[selKey];
+            const valor = pericia?.value ?? 0;
+
+            const roll = new Roll(`1d20 + ${valor}`);
+            await roll.roll({ async: true });
+
+            if (game.dice3d) await game.dice3d.showForRoll(roll, game.user, true);
+
+            roll.toMessage({
+              speaker: ChatMessage.getSpeaker({ actor }),
+              flavor: `Teste de ${game.i18n.localize(pericia.label || selKey)}`
+            });
+
+            d.close();
+          });
+        });
+
+        return;
+      }
+
+      // Futuras funcionalidades para outros botões aqui
       ui.notifications.info(`Você clicou em: ${tab}`);
     });
   });
@@ -52,12 +120,10 @@ Hooks.once("ready", async () => {
   const actor = controlled?.actor;
   await renderHUD(actor);
 
-  // Atualiza HUD ao mudar o token selecionado
   Hooks.on("controlToken", async (token, controlled) => {
     if (controlled) await renderHUD(token.actor);
   });
 
-  // Atualiza HUD ao mudar PV, PM ou Defesa
   Hooks.on("updateActor", async (actorUpdated, data, options, userId) => {
     const current = canvas.tokens.controlled[0];
     if (current?.actor?.id === actorUpdated.id) {
