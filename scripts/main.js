@@ -15,9 +15,12 @@ async function renderHUD(actor) {
 
   if (!actor) return;
 
-  const armas = actor.items.filter(i => i.type === "arma" && i.system?.equipada);
-  const armaEquipada = armas[0];
-  const armaIcon = armaEquipada?.img ?? "icons/svg/sword.svg"; // fallback padrão
+  const armaEquipada = actor.items.find(i =>
+    i.type === "arma" &&
+    i.system?.equipado === 1 &&
+    i.system?.equipado2?.type === "hand"
+  );
+  const armaIcon = armaEquipada?.img ?? "icons/svg/sword.svg";
 
   const buttons = [
     { id: "ataque", label: "ATAQUE", icon: armaIcon, tab: "ataque" },
@@ -110,41 +113,99 @@ async function renderHUD(actor) {
       }
 
       if (tab === "ataque") {
-        const armas = selectedActor.items.filter(i => i.type === "arma" && i.system?.equipada);
+        const armas = selectedActor.items.filter(i =>
+          i.type === "arma" &&
+          i.system?.equipado === 1 &&
+          i.system?.equipado2?.type === "hand"
+        );
+
         if (armas.length === 0) {
-          ui.notifications.warn("Nenhuma arma equipada encontrada.");
+          ui.notifications.warn("Nenhuma arma equipada na mão principal encontrada.");
           return;
         }
 
-        const arma = armas[0];
-        const ataque = arma.system?.ataque ?? "1d20 + 0";
-        const dano = arma.system?.dano ?? "1d6";
+        if (armas.length === 1) {
+          const arma = armas[0];
+          const ataque = arma.system?.ataque ?? "1d20 + 0";
+          const dano = arma.system?.dano ?? "1d6";
 
-        const ataqueRoll = new Roll(ataque);
-        const danoRoll = new Roll(dano);
+          const ataqueRoll = new Roll(ataque);
+          const danoRoll = new Roll(dano);
 
-        Promise.all([ataqueRoll.roll({ async: true }), danoRoll.roll({ async: true })]).then(async () => {
-          if (game.dice3d) {
-            await game.dice3d.showForRoll(ataqueRoll, game.user, true);
-            await game.dice3d.showForRoll(danoRoll, game.user, true);
-          }
+          Promise.all([ataqueRoll.roll({ async: true }), danoRoll.roll({ async: true })]).then(async () => {
+            if (game.dice3d) {
+              await game.dice3d.showForRoll(ataqueRoll, game.user, true);
+              await game.dice3d.showForRoll(danoRoll, game.user, true);
+            }
 
-          ChatMessage.create({
-            speaker: ChatMessage.getSpeaker({ actor: selectedActor }),
-            flavor: `Ataque com ${arma.name}`,
-            content: `
-              <strong>Rolagem de Ataque:</strong> ${ataqueRoll.total} <br/>
-              <em>${ataqueRoll.formula}</em><br/><br/>
-              <strong>Dano:</strong> ${danoRoll.total} <br/>
-              <em>${danoRoll.formula}</em>
-            `
+            ChatMessage.create({
+              speaker: ChatMessage.getSpeaker({ actor: selectedActor }),
+              flavor: `Ataque com ${arma.name}`,
+              content: `
+                <strong>Rolagem de Ataque:</strong> ${ataqueRoll.total} <br/>
+                <em>${ataqueRoll.formula}</em><br/><br/>
+                <strong>Dano:</strong> ${danoRoll.total} <br/>
+                <em>${danoRoll.formula}</em>
+              `
+            });
           });
+
+          return;
+        }
+
+        const dialogContent = `
+          <p>Escolha a arma para atacar:</p>
+          <select id="armaSelect">
+            ${armas.map(a => `<option value="${a.id}">${a.name}</option>`).join("")}
+          </select>
+          <button id="confirmarAtaque">Atacar</button>
+        `;
+
+        const d = new Dialog({
+          title: "Escolher Arma",
+          content: dialogContent,
+          buttons: { fechar: { label: "Cancelar" } },
+          render: html => {
+            const select = html[0].querySelector("#armaSelect");
+            const btn = html[0].querySelector("#confirmarAtaque");
+
+            btn.addEventListener("click", async () => {
+              const armaId = select.value;
+              const arma = armas.find(a => a.id === armaId);
+              const ataque = arma.system?.ataque ?? "1d20 + 0";
+              const dano = arma.system?.dano ?? "1d6";
+
+              const ataqueRoll = new Roll(ataque);
+              const danoRoll = new Roll(dano);
+
+              await ataqueRoll.roll({ async: true });
+              await danoRoll.roll({ async: true });
+
+              if (game.dice3d) {
+                await game.dice3d.showForRoll(ataqueRoll, game.user, true);
+                await game.dice3d.showForRoll(danoRoll, game.user, true);
+              }
+
+              ChatMessage.create({
+                speaker: ChatMessage.getSpeaker({ actor: selectedActor }),
+                flavor: `Ataque com ${arma.name}`,
+                content: `
+                  <strong>Rolagem de Ataque:</strong> ${ataqueRoll.total} <br/>
+                  <em>${ataqueRoll.formula}</em><br/><br/>
+                  <strong>Dano:</strong> ${danoRoll.total} <br/>
+                  <em>${danoRoll.formula}</em>
+                `
+              });
+
+              d.close();
+            });
+          }
         });
 
+        d.render(true);
         return;
       }
 
-      // Placeholder para outras abas
       ui.notifications.info(`Você clicou em: ${tab}`);
     });
   });
@@ -165,6 +226,15 @@ Hooks.once("ready", async () => {
     const current = canvas.tokens.controlled[0];
     if (current?.actor?.id === actorUpdated.id) {
       await renderHUD(actorUpdated);
+    }
+  });
+
+  Hooks.on("updateItem", async (item, data, options, userId) => {
+    const controlled = canvas.tokens.controlled[0];
+    if (!controlled) return;
+
+    if (item.parent?.id === controlled.actor.id && item.type === "arma") {
+      await renderHUD(controlled.actor);
     }
   });
 });
