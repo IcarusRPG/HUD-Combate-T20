@@ -124,32 +124,43 @@ async function renderHUD(actor) {
           return;
         }
 
-        if (armas.length === 1) {
-          const arma = armas[0];
-          const ataque = arma.system?.ataque ?? "1d20 + 0";
-          const dano = arma.system?.dano ?? "1d6";
+        const rolarAtaqueEDano = async (arma) => {
+          const ataqueRollData = arma.system.rolls.find(r => r.type === "ataque");
+          const danoRollData = arma.system.rolls.find(r => r.type === "dano");
 
-          const ataqueRoll = new Roll(ataque);
-          const danoRoll = new Roll(dano);
+          if (!ataqueRollData || !danoRollData) {
+            ui.notifications.warn("A arma selecionada não possui rolagens configuradas.");
+            return;
+          }
 
-          Promise.all([ataqueRoll.roll({ async: true }), danoRoll.roll({ async: true })]).then(async () => {
-            if (game.dice3d) {
-              await game.dice3d.showForRoll(ataqueRoll, game.user, true);
-              await game.dice3d.showForRoll(danoRoll, game.user, true);
-            }
+          const ataqueFormula = ataqueRollData.parts.map(p => p[0]).join(" + ");
+          const danoFormula = danoRollData.parts.map(p => p[0]).join(" + ");
 
-            ChatMessage.create({
-              speaker: ChatMessage.getSpeaker({ actor: selectedActor }),
-              flavor: `Ataque com ${arma.name}`,
-              content: `
-                <strong>Rolagem de Ataque:</strong> ${ataqueRoll.total} <br/>
-                <em>${ataqueRoll.formula}</em><br/><br/>
-                <strong>Dano:</strong> ${danoRoll.total} <br/>
-                <em>${danoRoll.formula}</em>
-              `
-            });
+          const ataqueRoll = new Roll(ataqueFormula, selectedActor.getRollData());
+          const danoRoll = new Roll(danoFormula, selectedActor.getRollData());
+
+          await ataqueRoll.roll({ async: true });
+          await danoRoll.roll({ async: true });
+
+          if (game.dice3d) {
+            await game.dice3d.showForRoll(ataqueRoll, game.user, true);
+            await game.dice3d.showForRoll(danoRoll, game.user, true);
+          }
+
+          ChatMessage.create({
+            speaker: ChatMessage.getSpeaker({ actor: selectedActor }),
+            flavor: `Ataque com ${arma.name}`,
+            content: `
+              <strong>Rolagem de Ataque:</strong> ${ataqueRoll.total} <br/>
+              <em>${ataqueRoll.formula}</em><br/><br/>
+              <strong>Dano:</strong> ${danoRoll.total} <br/>
+              <em>${danoRoll.formula}</em>
+            `
           });
+        };
 
+        if (armas.length === 1) {
+          rolarAtaqueEDano(armas[0]);
           return;
         }
 
@@ -172,31 +183,7 @@ async function renderHUD(actor) {
             btn.addEventListener("click", async () => {
               const armaId = select.value;
               const arma = armas.find(a => a.id === armaId);
-              const ataque = arma.system?.ataque ?? "1d20 + 0";
-              const dano = arma.system?.dano ?? "1d6";
-
-              const ataqueRoll = new Roll(ataque);
-              const danoRoll = new Roll(dano);
-
-              await ataqueRoll.roll({ async: true });
-              await danoRoll.roll({ async: true });
-
-              if (game.dice3d) {
-                await game.dice3d.showForRoll(ataqueRoll, game.user, true);
-                await game.dice3d.showForRoll(danoRoll, game.user, true);
-              }
-
-              ChatMessage.create({
-                speaker: ChatMessage.getSpeaker({ actor: selectedActor }),
-                flavor: `Ataque com ${arma.name}`,
-                content: `
-                  <strong>Rolagem de Ataque:</strong> ${ataqueRoll.total} <br/>
-                  <em>${ataqueRoll.formula}</em><br/><br/>
-                  <strong>Dano:</strong> ${danoRoll.total} <br/>
-                  <em>${danoRoll.formula}</em>
-                `
-              });
-
+              await rolarAtaqueEDano(arma);
               d.close();
             });
           }
