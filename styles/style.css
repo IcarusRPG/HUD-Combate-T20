@@ -1,0 +1,35 @@
+/* Barra rápida T20 */
+.t20-quickbar {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  background: linear-gradient(to right, #2c1d0b, #3d2912);
+  border-bottom: 2px solid #aa7e39;
+  padding: 5px 0;
+  box-shadow: 0 2px 6px #00000080;
+  margin-bottom: 10px;
+}
+
+.t20-quickbar-inner {
+  display: flex;
+  gap: 15px;
+}
+
+.t20-button {
+  width: 48px;
+  height: 48px;
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.t20-button:hover {
+  transform: scale(1.1);
+}
+
+.t20-button img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
