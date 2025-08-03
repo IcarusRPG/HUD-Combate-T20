@@ -1,133 +1,98 @@
-Hooks.once("init", () => {
-  game.settings.register("hud-combate-t20", "exibirBarra", {
-    name: "Ativar HUD de Combate T20",
-    hint: "Exibe ou oculta a barra de ações rápidas flutuante na tela.",
-    scope: "client",
-    config: true,
-    type: Boolean,
-    default: true
-  });
-});
-
-async function renderHUD(actor) {
-  const existing = document.querySelector(".t20-quickbar");
-  if (existing) existing.remove();
-
+Hooks.on('ready', () => {
+  const actor = canvas.tokens.controlled[0]?.actor;
   if (!actor) return;
 
-  const buttons = [
-    { id: "pericias", label: "PERÍCIAS", icon: "modules/hud-combate-t20/img/pericias.png", tab: "pericias" },
-    { id: "poderes", label: "PODERES", icon: "modules/hud-combate-t20/img/poderes.png", tab: "poderes" },
-    { id: "magias", label: "MAGIAS", icon: "modules/hud-combate-t20/img/magias.png", tab: "magias" },
-    { id: "inventario", label: "INVENTÁRIO", icon: "modules/hud-combate-t20/img/inventario.png", tab: "inventario" }
-  ];
+  const hud = document.createElement('div');
+  hud.id = 'hud-combate-t20';
 
-  const context = {
-    buttons,
-    img: actor.img,
-    nome: actor.name,
-    pv: `${actor.system?.attributes?.pv?.value ?? "—"} / ${actor.system?.attributes?.pv?.max ?? "—"}`,
-    pm: `${actor.system?.attributes?.pm?.value ?? "—"} / ${actor.system?.attributes?.pm?.max ?? "—"}`,
-    def: actor.system?.attributes?.defesa?.value ?? "—"
-  };
+  const name = actor.name;
+  const img = actor.img;
+  const pvAtual = actor.system.attributes.pv.value;
+  const pvTotal = actor.system.attributes.pv.max;
+  const pmAtual = actor.system.attributes.pm.value;
+  const pmTotal = actor.system.attributes.pm.max;
+  const defesa = actor.system.attributes.defesa.value ?? '—';
 
-  const html = await renderTemplate("modules/hud-combate-t20/templates/quick-actions.hbs", context);
+  hud.innerHTML = `
+    <div class="hud-container">
+      <div class="hud-left">
+        <img class="hud-img" src="${img}" />
+        <div class="hud-info">
+          <strong>${name}</strong><br>
+          PV: ${pvAtual} / ${pvTotal}<br>
+          PM: ${pmAtual} / ${pmTotal}<br>
+          DEF: ${defesa}
+        </div>
+      </div>
+      <div class="hud-buttons">
+        <button id="btn-pericias"><img src="modules/hud-combate-t20/img/pericias.png" title="Perícias" /></button>
+        <button id="btn-poderes"><img src="modules/hud-combate-t20/img/poderes.png" title="Poderes" /></button>
+        <button id="btn-magias"><img src="modules/hud-combate-t20/img/magias.png" title="Magias" /></button>
+        <button id="btn-inventario"><img src="modules/hud-combate-t20/img/inventario.png" title="Inventário" /></button>
+      </div>
+    </div>
+  `;
 
-  const container = document.createElement("div");
-  container.innerHTML = html;
-  document.body.appendChild(container.firstElementChild);
+  document.body.appendChild(hud);
 
-  document.querySelectorAll(".t20-button").forEach(button => {
-    button.addEventListener("click", () => {
-      const tab = button.dataset.tab;
+  document.getElementById('btn-pericias').addEventListener('click', () => {
+    const pericias = actor.system.pericias;
+    const options = Object.entries(pericias)
+      .map(([key, value]) => `<option value="${key}">${key.charAt(0).toUpperCase() + key.slice(1)} (${value.total})</option>`)
+      .join('');
 
-      if (tab === "pericias") {
-        const actor = canvas.tokens.controlled[0]?.actor;
-        if (!actor) return;
+    const content = `
+      <form>
+        <div class="form-group">
+          <label>Escolha a Perícia:</label>
+          <select id="pericia-select">${options}</select>
+        </div>
+        <div class="form-group">
+          <label id="pericia-valor">Valor: ${Object.values(pericias)[0].total}</label>
+        </div>
+      </form>
+    `;
 
-        const pericias = actor.system.pericias;
-        const periciaList = Object.entries(pericias).map(([key, value]) => ({
-          key,
-          label: game.i18n.localize(value.label || key),
-          value: value.value
-        }));
-
-        const dialogContent = `
-          <div style="display: flex; flex-direction: column; gap: 10px; font-family: sans-serif;">
-            <label for="periciaSelect">Escolha a Perícia:</label>
-            <select id="periciaSelect">
-              ${periciaList.map(p => `<option value="${p.key}">${p.label}</option>`).join("")}
-            </select>
-            <div id="periciaValor">Valor: ${periciaList[0].value}</div>
-            <button id="rolarTeste">🎲 Rolar Teste</button>
-          </div>
-        `;
-
-        const d = new Dialog({
-          title: "Teste de Perícia",
-          content: dialogContent,
-          buttons: {
-            fechar: { label: "Fechar" }
-          },
-          close: () => {}
-        });
-
-        d.render(true);
-
-        Hooks.once("renderDialog", () => {
-          const select = document.getElementById("periciaSelect");
-          const valorSpan = document.getElementById("periciaValor");
-          const rolarBtn = document.getElementById("rolarTeste");
-
-          select.addEventListener("change", () => {
-            const selKey = select.value;
-            const valor = actor.system.pericias[selKey]?.value ?? 0;
-            valorSpan.innerText = `Valor: ${valor}`;
-          });
-
-          rolarBtn.addEventListener("click", async () => {
-            const selKey = select.value;
-            const pericia = actor.system.pericias[selKey];
-            const valor = pericia?.value ?? 0;
-
-            const roll = new Roll(`1d20 + ${valor}`);
-            await roll.roll({ async: true });
-
-            if (game.dice3d) await game.dice3d.showForRoll(roll, game.user, true);
-
+    new Dialog({
+      title: 'Teste de Perícia',
+      content,
+      buttons: {
+        roll: {
+          label: '<i class="fas fa-dice-d20"></i> Rolar Teste',
+          callback: () => {
+            const key = document.getElementById('pericia-select').value;
+            const bonus = actor.system.pericias[key].total;
+            const roll = new Roll(`1d20 + ${bonus}`);
+            roll.evaluate({ async: false });
             roll.toMessage({
               speaker: ChatMessage.getSpeaker({ actor }),
-              flavor: `Teste de ${game.i18n.localize(pericia.label || selKey)}`
+              flavor: `Teste de ${key.charAt(0).toUpperCase() + key.slice(1)}`
             });
-
-            d.close();
-          });
+          }
+        }
+      },
+      render: html => {
+        html.find('#pericia-select').on('change', ev => {
+          const key = ev.target.value;
+          const val = actor.system.pericias[key].total;
+          html.find('#pericia-valor').text(`Valor: ${val}`);
         });
-
-        return;
       }
-
-      // Futuras funcionalidades para outros botões aqui
-      ui.notifications.info(`Você clicou em: ${tab}`);
-    });
-  });
-}
-
-Hooks.once("ready", async () => {
-  if (!game.settings.get("hud-combate-t20", "exibirBarra")) return;
-
-  const controlled = canvas.tokens.controlled[0];
-  const actor = controlled?.actor;
-  await renderHUD(actor);
-
-  Hooks.on("controlToken", async (token, controlled) => {
-    if (controlled) await renderHUD(token.actor);
+    }).render(true);
   });
 
-  Hooks.on("updateActor", async (actorUpdated, data, options, userId) => {
-    const current = canvas.tokens.controlled[0];
-    if (current?.actor?.id === actorUpdated.id) {
-      await renderHUD(actorUpdated);
-    }
+  document.getElementById('btn-poderes').addEventListener('click', () => {
+    actor.sheet.render(true);
+    actor.sheet._tabs.activate('features');
+  });
+
+  document.getElementById('btn-magias').addEventListener('click', () => {
+    actor.sheet.render(true);
+    actor.sheet._tabs.activate('spells');
+  });
+
+  document.getElementById('btn-inventario').addEventListener('click', () => {
+    actor.sheet.render(true);
+    actor.sheet._tabs.activate('inventory');
   });
 });
