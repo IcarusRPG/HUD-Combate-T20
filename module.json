@@ -3,7 +3,7 @@
   "title": "HUD Combate T20",
   "description": "Adiciona uma barra de ações rápidas personalizável para personagens no sistema Tormenta20.",
   "version": "1.0.0",
-  "author": "Seu Nome",
+  "author": "Icarus RPG",
   "minimumCoreVersion": "10",
   "compatibleCoreVersion": "11",
   "systems": ["tormenta20"],
@@ -16,7 +16,7 @@
       "path": "lang/pt-BR.json"
     }
   ],
-  "url": "https://github.com/seu-usuario/hud-combate-t20",
-  "manifest": "https://seu-servidor.com/hud-combate-t20/module.json",
-  "download": "https://seu-servidor.com/hud-combate-t20.zip"
+  "url": "https://github.com/IcarusRPG/HUD-Combate-T20",
+  "manifest": "https://raw.githubusercontent.com/IcarusRPG/HUD-Combate-T20/main/module.json",
+  "download": "https://github.com/IcarusRPG/HUD-Combate-T20/releases/latest/download/hud-combate-t20.zip"
 }
