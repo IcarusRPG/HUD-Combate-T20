@@ -169,8 +169,9 @@ async function renderHUD(actor) {
               });
 
               el.addEventListener("mousemove", (e) => {
-                tooltip.style.top = `${e.clientY + 12}px`;
-                tooltip.style.left = `${e.clientX + 12}px`;
+                tooltip.style.top = `${e.clientY}px`;
+				tooltip.style.left = `${e.clientX}px`;
+				tooltip.style.transform = "translate(10px, 5px)";
               });
 
               el.addEventListener("click", () => {
