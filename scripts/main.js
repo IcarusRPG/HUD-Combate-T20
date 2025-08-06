@@ -1,4 +1,3 @@
-// main.js
 Hooks.once("init", () => {
   game.settings.register("hud-combate-t20", "exibirBarra", {
     name: "Ativar HUD de Combate T20",
@@ -112,6 +111,122 @@ async function renderHUD(actor) {
         return;
       }
 
+      if (tab === "poderes") {
+        const poderes = selectedActor.items.filter(i => i.type === "poder");
+
+        if (poderes.length === 0) {
+          ui.notifications.warn("Nenhum poder encontrado.");
+          return;
+        }
+
+        const content = `
+          <style>
+            .t20-poderes-grid {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 10px;
+              max-height: 500px;
+              overflow-y: auto;
+              font-family: sans-serif;
+            }
+            .t20-poder-item {
+              display: flex;
+              gap: 10px;
+              padding: 6px;
+              border: 1px solid #666;
+              border-radius: 6px;
+              background: #1e1e1e;
+              color: white;
+              align-items: center;
+              cursor: pointer;
+            }
+            .t20-poder-item:hover {
+              background: #333;
+            }
+            .t20-poder-icon {
+              width: 36px;
+              height: 36px;
+              object-fit: cover;
+              border-radius: 4px;
+              border: 1px solid #aaa;
+            }
+            .t20-poder-info {
+              display: flex;
+              flex-direction: column;
+              font-size: 0.85rem;
+            }
+            .t20-poder-nome {
+              font-weight: bold;
+            }
+            .t20-poder-tooltip {
+              position: absolute;
+              background: #222;
+              color: white;
+              padding: 8px;
+              border-radius: 6px;
+              max-width: 300px;
+              font-size: 0.8rem;
+              box-shadow: 0 0 6px black;
+              z-index: 99999;
+              display: none;
+            }
+          </style>
+
+          <div class="t20-poderes-grid">
+            ${poderes.map(p => `
+              <div class="t20-poder-item" 
+                   data-id="${p.id}" 
+                   data-desc="${p.system.descricao?.replace(/"/g, '&quot;') || 'Sem descrição'}"
+                   title="${p.name}">
+                <img class="t20-poder-icon" src="${p.img}" />
+                <div class="t20-poder-info">
+                  <div class="t20-poder-nome">${p.name}</div>
+                  <div><strong>Tipo:</strong> ${p.system.tipo || "—"}</div>
+                  <div><strong>Ativação:</strong> ${p.system.ativacao || "—"}</div>
+                </div>
+              </div>
+            `).join("")}
+          </div>
+          <div class="t20-poder-tooltip" id="tooltip-poder"></div>
+        `;
+
+        const d = new Dialog({
+          title: "Poderes",
+          content,
+          buttons: { fechar: { label: "Fechar" } },
+          render: (html) => {
+            const tooltip = html[0].querySelector("#tooltip-poder");
+
+            html[0].querySelectorAll(".t20-poder-item").forEach(el => {
+              el.addEventListener("mouseenter", (e) => {
+                tooltip.innerText = el.dataset.desc;
+                tooltip.style.display = "block";
+              });
+
+              el.addEventListener("mouseleave", () => {
+                tooltip.style.display = "none";
+              });
+
+              el.addEventListener("mousemove", (e) => {
+                tooltip.style.top = `${e.clientY + 12}px`;
+                tooltip.style.left = `${e.clientX + 12}px`;
+              });
+
+              el.addEventListener("click", () => {
+                const poderId = el.dataset.id;
+                const poder = selectedActor.items.get(poderId);
+                const event = new MouseEvent("click", { shiftKey: true });
+                poder?.roll({ event });
+                d.close();
+              });
+            });
+          }
+        });
+
+        d.render(true);
+        return;
+      }
+
       if (tab === "ataque") {
         const armas = selectedActor.items.filter(i =>
           i.type === "arma" &&
@@ -159,38 +274,6 @@ async function renderHUD(actor) {
           }
         });
 
-        d.render(true);
-        return;
-      }
-
-      if (tab === "poderes") {
-        const poderes = selectedActor.items.filter(i => i.type === "poder");
-        const conteudo = poderes.map(poder => `
-          <div class="poder-item" data-item-id="${poder.id}">
-            <img src="${poder.img}" title="${poder.name}: ${poder.system.description?.value || ""}" />
-            <span>${poder.name}</span>
-          </div>
-        `).join("");
-
-        const html = `<div class="poderes-lista">${conteudo}</div>`;
-        const d = new Dialog({
-          title: `Poderes de ${selectedActor.name}`,
-          content: html,
-          buttons: {
-            fechar: { label: "Fechar" }
-          },
-          render: html => {
-            html.find(".poder-item").on("click", async function () {
-              const itemId = $(this).data("item-id");
-              const item = selectedActor.items.get(itemId);
-              if (!item?.sheet || typeof item.sheet._onItemRoll !== "function") {
-                ui.notifications.warn("Poder não pode ser usado.");
-                return;
-              }
-              item.sheet._onItemRoll.call(item.sheet, { shiftKey: true });
-            });
-          }
-        });
         d.render(true);
         return;
       }
