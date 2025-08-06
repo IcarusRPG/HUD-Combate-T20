@@ -12,6 +12,7 @@ Hooks.once("init", () => {
 async function renderHUD(actor) {
   const existing = document.querySelector(".t20-quickbar");
   if (existing) existing.remove();
+
   if (!actor) return;
 
   const armaEquipada = actor.items.find(i =>
@@ -35,10 +36,11 @@ async function renderHUD(actor) {
     nome: actor.name,
     pv: `${actor.system?.attributes?.pv?.value ?? "—"} / ${actor.system?.attributes?.pv?.max ?? "—"}`,
     pm: `${actor.system?.attributes?.pm?.value ?? "—"} / ${actor.system?.attributes?.pm?.max ?? "—"}`,
-    def: actor.system?.attributes?.defesa?.value ?? "—"`
+    def: actor.system?.attributes?.defesa?.value ?? "—"
   };
 
   const html = await renderTemplate("modules/hud-combate-t20/templates/quick-actions.hbs", context);
+
   const container = document.createElement("div");
   container.innerHTML = html;
   document.body.appendChild(container.firstElementChild);
@@ -50,136 +52,143 @@ async function renderHUD(actor) {
       if (!selectedActor) return;
 
       if (tab === "poderes") {
-        const poderes = selectedActor.items.filter(i => i.type === "poder");
-        if (poderes.length === 0) {
-          ui.notifications.warn("Nenhum poder encontrado.");
-          return;
-        }
+  const poderes = selectedActor.items.filter(i => i.type === "poder");
 
-        const content = `
-          <style>
-            .t20-poderes-grid {
-              display: grid;
-              grid-template-columns: 1fr 1fr;
-              gap: 10px;
-              max-height: 500px;
-              overflow-y: auto;
-              font-family: sans-serif;
-            }
-            .t20-poder-item {
-              display: flex;
-              gap: 10px;
-              padding: 6px;
-              border: 1px solid #666;
-              border-radius: 6px;
-              background: #1e1e1e;
-              color: white;
-              align-items: center;
-              cursor: pointer;
-              position: relative;
-            }
-            .t20-poder-item:hover {
-              background: #333;
-            }
-            .t20-poder-icon {
-              width: 36px;
-              height: 36px;
-              object-fit: cover;
-              border-radius: 4px;
-              border: 1px solid #aaa;
-            }
-            .t20-poder-info {
-              display: flex;
-              flex-direction: column;
-              font-size: 0.85rem;
-            }
-            .t20-poder-nome {
-              font-weight: bold;
-            }
-            .t20-poder-tooltip {
-              position: fixed;
-              background: #222;
-              color: white;
-              padding: 8px;
-              border-radius: 6px;
-              max-width: 300px;
-              font-size: 0.8rem;
-              box-shadow: 0 0 6px black;
-              z-index: 99999;
-              display: none;
-              pointer-events: none;
-              white-space: normal;
-            }
-          </style>
+  if (poderes.length === 0) {
+    ui.notifications.warn("Nenhum poder encontrado.");
+    return;
+  }
 
-          <div class="t20-poderes-grid">
-            ${poderes.map(p => {
-              const tipo = p.system?.tipo || "—";
-              const ativ = p.system?.ativacao || {};
-              const exec = ativ.execucao && ativ.execucao !== "passive" ? ativ.execucao : "";
-              const cond = ativ.condicao || "";
-              const custo = ativ.custo > 0 ? `${ativ.custo} PM` : "";
-              const ativacao = [cond, exec, custo].filter(v => v).join(", ") || "—";
+  const content = `
+    <style>
+      .t20-poderes-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        max-height: 500px;
+        overflow-y: auto;
+        font-family: sans-serif;
+      }
+      .t20-poder-item {
+        display: flex;
+        gap: 10px;
+        padding: 6px;
+        border: 1px solid #666;
+        border-radius: 6px;
+        background: #1e1e1e;
+        color: white;
+        align-items: center;
+        cursor: pointer;
+        position: relative;
+      }
+      .t20-poder-item:hover {
+        background: #333;
+      }
+      .t20-poder-icon {
+        width: 36px;
+        height: 36px;
+        object-fit: cover;
+        border-radius: 4px;
+        border: 1px solid #aaa;
+      }
+      .t20-poder-info {
+        display: flex;
+        flex-direction: column;
+        font-size: 0.85rem;
+      }
+      .t20-poder-nome {
+        font-weight: bold;
+      }
+      .t20-poder-tooltip {
+        position: fixed;
+        background: #222;
+        color: white;
+        padding: 8px;
+        border-radius: 6px;
+        max-width: 300px;
+        font-size: 0.8rem;
+        box-shadow: 0 0 6px black;
+        z-index: 99999;
+        display: none;
+        pointer-events: none;
+        white-space: normal;
+      }
+    </style>
 
-              const alcance = p.system?.alcance;
-              const alvo = p.system?.alvo;
-              const area = p.system?.area;
+    <div class="t20-poderes-grid">
+      ${poderes.map(p => {
+        const tipo = p.system?.tipo || "—";
+        const ativ = p.system?.ativacao || {};
+        const exec = ativ.execucao && ativ.execucao !== "passive" ? ativ.execucao : "";
+        const cond = ativ.condicao || "";
+        const custo = ativ.custo > 0 ? \`\${ativ.custo} PM\` : "";
+        const ativacao = [cond, exec, custo].filter(v => v).join(", ") || "—";
 
-              const infoExtras = [
-                alcance && alcance !== "none" ? `<div><strong>Alcance:</strong> ${alcance}</div>` : "",
-                alvo ? `<div><strong>Alvo:</strong> ${alvo}</div>` : "",
-                area ? `<div><strong>Área:</strong> ${area}</div>` : ""
-              ].join("");
+        const alcance = p.system?.alcance;
+        const alvo = p.system?.alvo;
+        const area = p.system?.area;
 
-              const descricao = p.system?.description?.value?.replace(/"/g, '&quot;') || "Sem descrição";
+        const infoExtras = [ 
+          alcance && alcance !== "none" ? \`<div><strong>Alcance:</strong> \${alcance}</div>\` : "",
+          alvo ? \`<div><strong>Alvo:</strong> \${alvo}</div>\` : "",
+          area ? \`<div><strong>Área:</strong> \${area}</div>\` : ""
+        ].join("");
 
-              return `
-                <div class="t20-poder-item" data-id="${p.id}" data-desc="${descricao}">
-                  <img class="t20-poder-icon" src="${p.img}" />
-                  <div class="t20-poder-info">
-                    <div class="t20-poder-nome">${p.name}</div>
-                    <div><strong>Tipo:</strong> ${tipo}</div>
-                    <div><strong>Ativação:</strong> ${ativacao}</div>
-                    ${infoExtras}
-                  </div>
-                </div>
-              `;
-            }).join("")}
+        const descricao = p.system?.description?.value?.replace(/"/g, '&quot;') || "Sem descrição";
+
+        return \`
+          <div class="t20-poder-item" data-id="\${p.id}" data-desc="\${descricao}">
+            <img class="t20-poder-icon" src="\${p.img}" />
+            <div class="t20-poder-info">
+              <div class="t20-poder-nome">\${p.name}</div>
+              <div><strong>Tipo:</strong> \${tipo}</div>
+              <div><strong>Ativação:</strong> \${ativacao}</div>
+              \${infoExtras}
+            </div>
           </div>
-          <div class="t20-poder-tooltip" id="tooltip-poder"></div>
-        `;
+        \`;
+      }).join("")}
+    </div>
+    <div class="t20-poder-tooltip" id="tooltip-poder"></div>
+  `;
 
-        const d = new Dialog({
-          title: "Poderes",
-          content,
-          buttons: { fechar: { label: "Fechar" } },
-          render: (html) => {
-            const tooltip = html[0].querySelector("#tooltip-poder");
-            html[0].querySelectorAll(".t20-poder-item").forEach(el => {
-              el.addEventListener("mouseenter", () => {
-                tooltip.innerHTML = el.dataset.desc;
-                tooltip.style.display = "block";
-              });
-              el.addEventListener("mouseleave", () => {
-                tooltip.style.display = "none";
-              });
-              el.addEventListener("mousemove", (e) => {
-                tooltip.style.top = `${e.clientY}px`;
-                tooltip.style.left = `${e.clientX}px`;
-                tooltip.style.transform = "translate(10px, 5px)";
-              });
-              el.addEventListener("click", () => {
-                const poderId = el.dataset.id;
-                const poder = selectedActor.items.get(poderId);
-                const event = new MouseEvent("click", { shiftKey: true });
-                poder?.roll({ event });
-                d.close();
-              });
-            });
-          }
+  const d = new Dialog({
+    title: "Poderes",
+    content,
+    buttons: { fechar: { label: "Fechar" } },
+    render: (html) => {
+      const tooltip = html[0].querySelector("#tooltip-poder");
+
+      html[0].querySelectorAll(".t20-poder-item").forEach(el => {
+        el.addEventListener("mouseenter", () => {
+          tooltip.innerHTML = el.dataset.desc;
+          tooltip.style.display = "block";
         });
 
-        d.render(true);
+        el.addEventListener("mouseleave", () => {
+          tooltip.style.display = "none";
+        });
+
+        el.addEventListener("mousemove", (e) => {
+          tooltip.style.top = \`\${e.clientY}px\`;
+          tooltip.style.left = \`\${e.clientX}px\`;
+          tooltip.style.transform = "translate(10px, 5px)";
+        });
+
+        el.addEventListener("click", () => {
+          const poderId = el.dataset.id;
+          const poder = selectedActor.items.get(poderId);
+          const event = new MouseEvent("click", { shiftKey: true });
+          poder?.roll({ event });
+          d.close();
+        });
+      });
+    }
+  });
+
+  d.render(true);
+  return;
+}
         return;
       }
 
@@ -220,6 +229,7 @@ async function renderHUD(actor) {
           render: html => {
             const select = html[0].querySelector("#armaSelect");
             const btn = html[0].querySelector("#confirmarAtaque");
+
             btn.addEventListener("click", () => {
               const armaId = select.value;
               const arma = armas.find(a => a.id === armaId);
