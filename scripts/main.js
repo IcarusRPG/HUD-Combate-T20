@@ -46,70 +46,10 @@ async function renderHUD(actor) {
   document.body.appendChild(container.firstElementChild);
 
   document.querySelectorAll(".t20-button").forEach(button => {
-    button.addEventListener("click", () => {
+    button.addEventListener("click", async () => {
       const tab = button.dataset.tab;
       const selectedActor = canvas.tokens.controlled[0]?.actor;
       if (!selectedActor) return;
-
-      if (tab === "pericias") {
-        const pericias = selectedActor.system.pericias;
-        const periciaList = Object.entries(pericias).map(([key, value]) => ({
-          key,
-          label: game.i18n.localize(value.label || key),
-          value: value.value
-        }));
-
-        const dialogContent = `
-          <div style="display: flex; flex-direction: column; gap: 10px; font-family: sans-serif;">
-            <label for="periciaSelect">Escolha a Perícia:</label>
-            <select id="periciaSelect">
-              ${periciaList.map(p => `<option value="${p.key}">${p.label}</option>`).join("")}
-            </select>
-            <div id="periciaValor">Valor: ${periciaList[0].value}</div>
-            <button id="rolarTeste">🎲 Rolar Teste</button>
-          </div>
-        `;
-
-        const d = new Dialog({
-          title: "Teste de Perícia",
-          content: dialogContent,
-          buttons: {
-            fechar: { label: "Fechar" }
-          },
-          render: (html) => {
-            const select = html[0].querySelector("#periciaSelect");
-            const valorSpan = html[0].querySelector("#periciaValor");
-            const rolarBtn = html[0].querySelector("#rolarTeste");
-
-            select.addEventListener("change", () => {
-              const selKey = select.value;
-              const valor = selectedActor.system.pericias[selKey]?.value ?? 0;
-              valorSpan.innerText = `Valor: ${valor}`;
-            });
-
-            rolarBtn.addEventListener("click", async () => {
-              const selKey = select.value;
-              const pericia = selectedActor.system.pericias[selKey];
-              const valor = pericia?.value ?? 0;
-
-              const roll = new Roll(`1d20 + ${valor}`);
-              await roll.evaluate();
-
-              if (game.dice3d) await game.dice3d.showForRoll(roll, game.user, true);
-
-              roll.toMessage({
-                speaker: ChatMessage.getSpeaker({ actor: selectedActor }),
-                flavor: `Teste de ${game.i18n.localize(pericia.label || selKey)}`
-              });
-
-              d.close();
-            });
-          }
-        });
-
-        d.render(true);
-        return;
-      }
 
       if (tab === "poderes") {
         const poderes = selectedActor.items.filter(i => i.type === "poder");
@@ -173,19 +113,40 @@ async function renderHUD(actor) {
           </style>
 
           <div class="t20-poderes-grid">
-            ${poderes.map(p => `
-              <div class="t20-poder-item" 
-                   data-id="${p.id}" 
-                   data-desc="${p.system.descricao?.replace(/"/g, '&quot;') || 'Sem descrição'}"
-                   title="${p.name}">
-                <img class="t20-poder-icon" src="${p.img}" />
-                <div class="t20-poder-info">
-                  <div class="t20-poder-nome">${p.name}</div>
-                  <div><strong>Tipo:</strong> ${p.system.tipo || "—"}</div>
-                  <div><strong>Ativação:</strong> ${p.system.ativacao || "—"}</div>
+            ${poderes.map(p => {
+              const desc = p.system?.description?.value?.replace(/"/g, '&quot;')?.replace(/(<([^>]+)>)/gi, "") || "Sem descrição";
+              const tipo = p.system?.tipo || "—";
+              const exec = p.system?.ativacao?.execucao?.toLowerCase();
+              const cond = p.system?.ativacao?.condicao;
+              const custo = p.system?.ativacao?.custo;
+              const ativacao = [
+                exec !== "" && exec !== "none" ? exec.charAt(0).toUpperCase() + exec.slice(1) : null,
+                cond || null,
+                (custo && custo !== "0") ? `${custo} PM` : null
+              ].filter(Boolean).join(", ");
+
+              const alcance = p.system?.alcance;
+              const alvo = p.system?.alvo;
+              const area = p.system?.area;
+
+              const detalhesExtra = [
+                alcance && alcance !== "none" ? `<div><strong>Alcance:</strong> ${alcance}</div>` : "",
+                alvo ? `<div><strong>Alvo:</strong> ${alvo}</div>` : "",
+                area ? `<div><strong>Área:</strong> ${area}</div>` : ""
+              ].join("");
+
+              return `
+                <div class="t20-poder-item" data-id="${p.id}" data-desc="${desc}" title="${p.name}">
+                  <img class="t20-poder-icon" src="${p.img}" />
+                  <div class="t20-poder-info">
+                    <div class="t20-poder-nome">${p.name}</div>
+                    <div><strong>Tipo:</strong> ${tipo}</div>
+                    <div><strong>Ativação:</strong> ${ativacao || "—"}</div>
+                    ${detalhesExtra}
+                  </div>
                 </div>
-              </div>
-            `).join("")}
+              `;
+            }).join("")}
           </div>
           <div class="t20-poder-tooltip" id="tooltip-poder"></div>
         `;
@@ -198,7 +159,7 @@ async function renderHUD(actor) {
             const tooltip = html[0].querySelector("#tooltip-poder");
 
             html[0].querySelectorAll(".t20-poder-item").forEach(el => {
-              el.addEventListener("mouseenter", (e) => {
+              el.addEventListener("mouseenter", () => {
                 tooltip.innerText = el.dataset.desc;
                 tooltip.style.display = "block";
               });
