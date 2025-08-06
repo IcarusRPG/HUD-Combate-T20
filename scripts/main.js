@@ -240,7 +240,144 @@ async function renderHUD(actor) {
         d.render(true);
         return;
       }
+	  if (tab === "magias") {
+	  const magias = selectedActor.items.filter(i => i.type === "magia");
 
+	  if (magias.length === 0) {
+		ui.notifications.warn("Nenhuma magia encontrada.");
+		return;
+	  }
+
+	  const content = `
+		<style>
+		  .t20-poderes-grid {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 10px;
+			max-height: 500px;
+			overflow-y: auto;
+			font-family: sans-serif;
+		  }
+		  .t20-poder-item {
+			display: flex;
+			gap: 10px;
+			padding: 6px;
+			border: 1px solid #666;
+			border-radius: 6px;
+			background: #1e1e1e;
+			color: white;
+			align-items: center;
+			cursor: pointer;
+			position: relative;
+		  }
+		  .t20-poder-item:hover {
+			background: #333;
+		  }
+		  .t20-poder-icon {
+			width: 36px;
+			height: 36px;
+			object-fit: cover;
+			border-radius: 4px;
+			border: 1px solid #aaa;
+		  }
+		  .t20-poder-info {
+			display: flex;
+			flex-direction: column;
+			font-size: 0.85rem;
+		  }
+		  .t20-poder-nome {
+			font-weight: bold;
+		  }
+		  .t20-poder-tooltip {
+			position: fixed;
+			background: #222;
+			color: white;
+			padding: 8px;
+			border-radius: 6px;
+			max-width: 300px;
+			font-size: 0.8rem;
+			box-shadow: 0 0 6px black;
+			z-index: 99999;
+			display: none;
+			pointer-events: none;
+			white-space: normal;
+		  }
+		</style>
+
+		<div class="t20-poderes-grid">
+		  ${magias.map(m => {
+			const tipo = m.system?.tipo || "—";
+			const ativ = m.system?.ativacao || {};
+			const exec = ativ.execucao && ativ.execucao !== "passive" ? ativ.execucao : "";
+			const cond = ativ.condicao || "";
+			const custo = ativ.custo > 0 ? `${ativ.custo} PM` : "";
+			const ativacao = [cond, exec, custo].filter(v => v).join(", ") || "—";
+
+			const alcance = m.system?.alcance;
+			const alvo = m.system?.alvo;
+			const area = m.system?.area;
+
+			const infoExtras = [ 
+			  alcance && alcance !== "none" ? `<div><strong>Alcance:</strong> ${alcance}</div>` : "",
+			  alvo ? `<div><strong>Alvo:</strong> ${alvo}</div>` : "",
+			  area ? `<div><strong>Área:</strong> ${area}</div>` : ""
+			].join("");
+
+			const descricao = m.system?.description?.value?.replace(/"/g, '&quot;') || "Sem descrição";
+
+			return `
+			  <div class="t20-poder-item" data-id="${m.id}" data-desc="${descricao}">
+				<img class="t20-poder-icon" src="${m.img}" />
+				<div class="t20-poder-info">
+				  <div class="t20-poder-nome">${m.name}</div>
+				  <div><strong>Tipo:</strong> ${tipo}</div>
+				  <div><strong>Ativação:</strong> ${ativacao}</div>
+				  ${infoExtras}
+				</div>
+			  </div>
+			`;
+		  }).join("")}
+		</div>
+		<div class="t20-poder-tooltip" id="tooltip-magia"></div>
+	  `;
+
+	  const d = new Dialog({
+		title: "Magias",
+		content,
+		buttons: { fechar: { label: "Fechar" } },
+		render: (html) => {
+		  const tooltip = html[0].querySelector("#tooltip-magia");
+
+		  html[0].querySelectorAll(".t20-poder-item").forEach(el => {
+			el.addEventListener("mouseenter", () => {
+			  tooltip.innerHTML = el.dataset.desc;
+			  tooltip.style.display = "block";
+			});
+
+			el.addEventListener("mouseleave", () => {
+			  tooltip.style.display = "none";
+			});
+
+			el.addEventListener("mousemove", (e) => {
+			  tooltip.style.top = `${e.clientY}px`;
+			  tooltip.style.left = `${e.clientX}px`;
+			  tooltip.style.transform = "translate(10px, 5px)";
+			});
+
+			el.addEventListener("click", () => {
+			  const magiaId = el.dataset.id;
+			  const magia = selectedActor.items.get(magiaId);
+			  const event = new MouseEvent("click", { shiftKey: true });
+			  magia?.roll({ event });
+			  d.close();
+			});
+		  });
+		}
+	  });
+
+	  d.render(true);
+	  return;
+	}
       ui.notifications.info(`Você clicou em: ${tab}`);
     });
   });
