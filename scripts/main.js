@@ -12,7 +12,6 @@ Hooks.once("init", () => {
 async function renderHUD(actor) {
   const existing = document.querySelector(".t20-quickbar");
   if (existing) existing.remove();
-
   if (!actor) return;
 
   const armaEquipada = actor.items.find(i =>
@@ -36,11 +35,10 @@ async function renderHUD(actor) {
     nome: actor.name,
     pv: `${actor.system?.attributes?.pv?.value ?? "—"} / ${actor.system?.attributes?.pv?.max ?? "—"}`,
     pm: `${actor.system?.attributes?.pm?.value ?? "—"} / ${actor.system?.attributes?.pm?.max ?? "—"}`,
-    def: actor.system?.attributes?.defesa?.value ?? "—"
+    def: actor.system?.attributes?.defesa?.value ?? "—"`
   };
 
   const html = await renderTemplate("modules/hud-combate-t20/templates/quick-actions.hbs", context);
-
   const container = document.createElement("div");
   container.innerHTML = html;
   document.body.appendChild(container.firstElementChild);
@@ -53,7 +51,6 @@ async function renderHUD(actor) {
 
       if (tab === "poderes") {
         const poderes = selectedActor.items.filter(i => i.type === "poder");
-
         if (poderes.length === 0) {
           ui.notifications.warn("Nenhum poder encontrado.");
           return;
@@ -79,6 +76,7 @@ async function renderHUD(actor) {
               color: white;
               align-items: center;
               cursor: pointer;
+              position: relative;
             }
             .t20-poder-item:hover {
               background: #333;
@@ -99,7 +97,7 @@ async function renderHUD(actor) {
               font-weight: bold;
             }
             .t20-poder-tooltip {
-              position: absolute;
+              position: fixed;
               background: #222;
               color: white;
               padding: 8px;
@@ -109,40 +107,40 @@ async function renderHUD(actor) {
               box-shadow: 0 0 6px black;
               z-index: 99999;
               display: none;
+              pointer-events: none;
+              white-space: normal;
             }
           </style>
 
           <div class="t20-poderes-grid">
             ${poderes.map(p => {
-              const desc = p.system?.description?.value?.replace(/"/g, '&quot;')?.replace(/(<([^>]+)>)/gi, "") || "Sem descrição";
               const tipo = p.system?.tipo || "—";
-              const exec = p.system?.ativacao?.execucao?.toLowerCase();
-              const cond = p.system?.ativacao?.condicao;
-              const custo = p.system?.ativacao?.custo;
-              const ativacao = [
-                exec !== "" && exec !== "none" ? exec.charAt(0).toUpperCase() + exec.slice(1) : null,
-                cond || null,
-                (custo && custo !== "0") ? `${custo} PM` : null
-              ].filter(Boolean).join(", ");
+              const ativ = p.system?.ativacao || {};
+              const exec = ativ.execucao && ativ.execucao !== "passive" ? ativ.execucao : "";
+              const cond = ativ.condicao || "";
+              const custo = ativ.custo > 0 ? `${ativ.custo} PM` : "";
+              const ativacao = [cond, exec, custo].filter(v => v).join(", ") || "—";
 
               const alcance = p.system?.alcance;
               const alvo = p.system?.alvo;
               const area = p.system?.area;
 
-              const detalhesExtra = [
+              const infoExtras = [
                 alcance && alcance !== "none" ? `<div><strong>Alcance:</strong> ${alcance}</div>` : "",
                 alvo ? `<div><strong>Alvo:</strong> ${alvo}</div>` : "",
                 area ? `<div><strong>Área:</strong> ${area}</div>` : ""
               ].join("");
 
+              const descricao = p.system?.description?.value?.replace(/"/g, '&quot;') || "Sem descrição";
+
               return `
-                <div class="t20-poder-item" data-id="${p.id}" data-desc="${desc}" title="${p.name}">
+                <div class="t20-poder-item" data-id="${p.id}" data-desc="${descricao}">
                   <img class="t20-poder-icon" src="${p.img}" />
                   <div class="t20-poder-info">
                     <div class="t20-poder-nome">${p.name}</div>
                     <div><strong>Tipo:</strong> ${tipo}</div>
-                    <div><strong>Ativação:</strong> ${ativacao || "—"}</div>
-                    ${detalhesExtra}
+                    <div><strong>Ativação:</strong> ${ativacao}</div>
+                    ${infoExtras}
                   </div>
                 </div>
               `;
@@ -157,23 +155,19 @@ async function renderHUD(actor) {
           buttons: { fechar: { label: "Fechar" } },
           render: (html) => {
             const tooltip = html[0].querySelector("#tooltip-poder");
-
             html[0].querySelectorAll(".t20-poder-item").forEach(el => {
               el.addEventListener("mouseenter", () => {
-                tooltip.innerText = el.dataset.desc;
+                tooltip.innerHTML = el.dataset.desc;
                 tooltip.style.display = "block";
               });
-
               el.addEventListener("mouseleave", () => {
                 tooltip.style.display = "none";
               });
-
               el.addEventListener("mousemove", (e) => {
                 tooltip.style.top = `${e.clientY}px`;
-				tooltip.style.left = `${e.clientX}px`;
-				tooltip.style.transform = "translate(10px, 5px)";
+                tooltip.style.left = `${e.clientX}px`;
+                tooltip.style.transform = "translate(10px, 5px)";
               });
-
               el.addEventListener("click", () => {
                 const poderId = el.dataset.id;
                 const poder = selectedActor.items.get(poderId);
@@ -226,7 +220,6 @@ async function renderHUD(actor) {
           render: html => {
             const select = html[0].querySelector("#armaSelect");
             const btn = html[0].querySelector("#confirmarAtaque");
-
             btn.addEventListener("click", () => {
               const armaId = select.value;
               const arma = armas.find(a => a.id === armaId);
