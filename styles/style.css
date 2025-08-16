@@ -163,3 +163,22 @@
   background: gold; color: #000; font-weight: bold; font-size: 0.7rem;
   border-radius: 4px; padding: 0 4px;
 }
+
+.t20-help,
+.t20-collapse {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid #555;
+  background: #1e1e1e;
+  color: #fff;
+  cursor: pointer;
+}
+
+.t20-help:hover,
+.t20-collapse:hover {
+  background: #444;
+}
+
+/* Opcional: afastar os botões de ação dos botões utilitários (help/collapse) */
+.t20-toprow { gap: 8px; }

@@ -1,3 +1,13 @@
+/* ============================================================
+ * HUD Combate T20 — main.js (v0.7.x)
+ * - Favoritos (HUD)
+ * - Busca/ordem/filtros em Poderes & Magias
+ * - Perícias com "value"
+ * - Consumíveis apenas no Inventário
+ * - Hotkeys (A/P/M/R/I/H/?) e botão de Ajuda "?"
+ * - HUD arrastável e recolhível, posição persistente (cliente)
+ * ============================================================ */
+
 Hooks.once("init", () => {
   game.settings.register("hud-combate-t20", "exibirBarra", {
     name: "Ativar HUD de Combate T20",
@@ -8,7 +18,7 @@ Hooks.once("init", () => {
     default: true
   });
 
-  // posição, recolhido e favoritos (cliente)
+  // Posição e estado (cliente)
   game.settings.register("hud-combate-t20", "posicaoHUD", {
     name: "Posição da HUD",
     scope: "client",
@@ -16,6 +26,7 @@ Hooks.once("init", () => {
     type: Object,
     default: { left: null, bottom: 10 }
   });
+
   game.settings.register("hud-combate-t20", "hudColapsada", {
     name: "HUD recolhida",
     scope: "client",
@@ -23,6 +34,8 @@ Hooks.once("init", () => {
     type: Boolean,
     default: false
   });
+
+  // Favoritos por ator (cliente)
   game.settings.register("hud-combate-t20", "favoritos", {
     name: "Favoritos por Ator",
     scope: "client",
@@ -32,7 +45,7 @@ Hooks.once("init", () => {
   });
 });
 
-/* ------------ Helpers (favoritos/pos) ------------ */
+/* ---------------- Helpers favoritos/posição ---------------- */
 function getFavsFor(actorId) {
   const all = game.settings.get("hud-combate-t20", "favoritos") || {};
   return Array.isArray(all[actorId]) ? all[actorId] : [];
@@ -58,7 +71,36 @@ function getHUDPosStyle() {
   return parts.join("");
 }
 
-/* ------------ Render HUD ------------ */
+/* ---------------------- Ajuda (hotkeys) -------------------- */
+function showHotkeysDialog() {
+  const content = `
+    <style>
+      .t20-help-list { line-height: 1.6; }
+      .t20-help-list kbd {
+        background: #222; color: #fff; border: 1px solid #555; border-radius: 4px;
+        padding: 0 6px; font-family: monospace; font-size: 0.9rem;
+      }
+      .t20-help-note { opacity: .85; font-size: .9rem; margin-top: 6px; }
+    </style>
+    <div class="t20-help-list">
+      <div><kbd>A</kbd> — Ataque</div>
+      <div><kbd>P</kbd> — Poderes</div>
+      <div><kbd>M</kbd> — Magias</div>
+      <div><kbd>R</kbd> — Perícias</div>
+      <div><kbd>I</kbd> — Consumíveis</div>
+      <hr>
+      <div><kbd>H</kbd> ou <kbd>?</kbd> — Esta ajuda</div>
+      <div class="t20-help-note">Atalhos são ignorados quando um campo de texto está em foco.</div>
+    </div>
+  `;
+  new Dialog({
+    title: "Atalhos de Teclado — HUD Combate T20",
+    content,
+    buttons: { ok: { label: "Fechar" } }
+  }).render(true);
+}
+
+/* ------------------------ Render HUD ----------------------- */
 async function renderHUD(actor) {
   const existing = document.querySelector(".t20-quickbar");
   if (existing) existing.remove();
@@ -70,11 +112,11 @@ async function renderHUD(actor) {
   const armaIcon = armaEquipada?.img ?? "icons/svg/sword.svg";
 
   const buttons = [
-    { id: "ataque",    label: "ATAQUE",     icon: armaIcon,                                           tab: "ataque" },
-    { id: "pericias",  label: "PERÍCIAS",   icon: "modules/hud-combate-t20/img/pericias.png",         tab: "pericias" },
-    { id: "poderes",   label: "PODERES",    icon: "modules/hud-combate-t20/img/poderes.png",          tab: "poderes" },
-    { id: "magias",    label: "MAGIAS",     icon: "modules/hud-combate-t20/img/magias.png",           tab: "magias" },
-    { id: "inventario",label: "INVENTÁRIO", icon: "modules/hud-combate-t20/img/inventario.png",       tab: "inventario" }
+    { id: "ataque",     label: "ATAQUE",      icon: armaIcon,                                           tab: "ataque" },
+    { id: "pericias",   label: "PERÍCIAS",    icon: "modules/hud-combate-t20/img/pericias.png",         tab: "pericias" },
+    { id: "poderes",    label: "PODERES",     icon: "modules/hud-combate-t20/img/poderes.png",          tab: "poderes" },
+    { id: "magias",     label: "MAGIAS",      icon: "modules/hud-combate-t20/img/magias.png",           tab: "magias" },
+    { id: "inventario", label: "CONSUMÍVEIS", icon: "modules/hud-combate-t20/img/inventario.png",       tab: "inventario" }
   ];
 
   const context = {
@@ -96,7 +138,7 @@ async function renderHUD(actor) {
 
   const hudEl = document.querySelector(".t20-quickbar");
 
-  // favoritos (clique)
+  // Clique nos favoritos (HUD)
   document.querySelectorAll(".t20-fav").forEach(f => {
     f.addEventListener("click", () => {
       const type = f.dataset.type; const id = f.dataset.id;
@@ -108,17 +150,22 @@ async function renderHUD(actor) {
     });
   });
 
-  // collapse
+  // Collapse
   hudEl.querySelector(".t20-collapse")?.addEventListener("click", () => {
     const current = game.settings.get("hud-combate-t20", "hudColapsada");
     game.settings.set("hud-combate-t20", "hudColapsada", !current);
     hudEl.classList.toggle("t20-collapsed", !current);
   });
 
-  // drag
+  // Ajuda "?"
+  hudEl.querySelector(".t20-help")?.addEventListener("click", () => {
+    showHotkeysDialog();
+  });
+
+  // Drag
   makeDraggable(hudEl);
 
-  // botões
+  // Botões da HUD
   document.querySelectorAll(".t20-button").forEach(button => {
     button.addEventListener("click", async () => {
       const tab = button.dataset.tab;
@@ -171,7 +218,7 @@ async function renderHUD(actor) {
   });
 }
 
-/* ------------ Poderes: busca + ordem + filtros avançados ------------ */
+/* ------------- Poderes: busca/ordem/filtros/fav ------------- */
 async function openPowersDialog(selectedActor) {
   const poderes = selectedActor.items.filter(i => i.type === "poder");
   if (!poderes.length) return ui.notifications.warn("Nenhum poder encontrado.");
@@ -316,7 +363,7 @@ async function openPowersDialog(selectedActor) {
   d.render(true);
 }
 
-/* ------------ Magias: busca + ordem + filtros avançados ------------ */
+/* ------------- Magias: busca/ordem/filtros/nivel/fav ------------- */
 async function openSpellsDialog(selectedActor) {
   const magias = selectedActor.items.filter(i => i.type === "magia");
   if (!magias.length) return ui.notifications.warn("Nenhuma magia encontrada.");
@@ -467,15 +514,15 @@ async function openSpellsDialog(selectedActor) {
   d.render(true);
 }
 
-/* ------------ Perícias: grid + busca + ordem + rolagem ------------ */
+/* ----------------- Perícias (usa "value") ------------------ */
 async function openSkillsDialog(actor) {
   const pericias = actor.system?.pericias || actor.system?.skills || {};
   const entries = Object.entries(pericias).map(([key, val]) => {
     const nome = val?.rotulo || val?.label || key;
-    const total = Number(val?.total ?? val?.mod ?? 0) || 0;
+    const value = Number(val?.value ?? val?.total ?? val?.mod ?? 0) || 0; // usa "value"
     const atr = (val?.atributo || val?.ability || "").toString();
     const treinada = !!(val?.treinado ?? val?.trained ?? false);
-    return { key, nome, total, atr, treinada };
+    return { key, nome, value, atr, treinada };
   });
 
   if (!entries.length) return ui.notifications.warn("Nenhuma perícia encontrada.");
@@ -486,9 +533,9 @@ async function openSkillsDialog(actor) {
          data-name="${p.nome.toLowerCase()}"
          data-atr="${p.atr.toLowerCase()}"
          data-treino="${p.treinada ? 'sim':'nao'}"
-         data-total="${p.total}">
+         data-value="${p.value}">
       <div class="t20-skill-name"><strong>${p.nome}</strong></div>
-      <div class="t20-skill-meta">ATR: ${p.atr || "—"} | Total: ${p.total} | ${p.treinada ? "Treinada" : "Não treinada"}</div>
+      <div class="t20-skill-meta">ATR: ${p.atr || "—"} | Bônus: ${p.value} | ${p.treinada ? "Treinada" : "Não treinada"}</div>
       <button class="t20-skill-roll">Rolar</button>
     </div>
   `).join("");
@@ -508,8 +555,8 @@ async function openSkillsDialog(actor) {
       <select id="t20-order">
         <option value="name-asc">Nome (A→Z)</option>
         <option value="name-desc">Nome (Z→A)</option>
-        <option value="total-desc">Bônus (↓)</option>
-        <option value="total-asc">Bônus (↑)</option>
+        <option value="value-desc">Bônus (↓)</option>
+        <option value="value-asc">Bônus (↑)</option>
       </select>
       <select id="t20-atr">
         <option value="">ATR (todas)</option>
@@ -560,22 +607,26 @@ async function openSkillsDialog(actor) {
         const [field, dir] = order.value.split("-");
         visible.sort((a,b) => {
           let av, bv;
-          if (field === "name") { av = a.dataset.name; bv = b.dataset.name; }
-          else { av = Number(a.dataset.total || 0); bv = Number(b.dataset.total || 0); }
-          return dir === "asc" ? (av > bv ? 1 : av < bv ? -1 : 0)
-                               : (av < bv ? 1 : av > bv ? -1 : 0);
+          if (field === "name") {
+            av = a.dataset.name; bv = b.dataset.name;
+            return dir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+          } else { // value
+            av = Number(a.dataset.value || 0);
+            bv = Number(b.dataset.value || 0);
+            return dir === "asc" ? av - bv : bv - av;
+          }
         }).forEach(el => grid.appendChild(el));
       };
 
       [search, order, selAtr, selTreino].forEach(el => el.addEventListener("input", applyFilters));
 
-      // rolar perícia (genérico)
+      // rolar perícia (usando "value")
       grid.querySelectorAll(".t20-skill-roll").forEach(btn => {
         btn.addEventListener("click", async (e) => {
-          const item = e.currentTarget.closest(".t20-skill-item");
-          const total = Number(item.dataset.total || 0);
-          const nome = item.querySelector(".t20-skill-name")?.textContent?.trim() || "Perícia";
-          const r = await (new Roll(`1d20 + ${total}`)).roll({async:true});
+          const card = e.currentTarget.closest(".t20-skill-item");
+          const value = Number(card.dataset.value || 0);
+          const nome = card.querySelector(".t20-skill-name")?.textContent?.trim() || "Perícia";
+          const r = await (new Roll(`1d20 + ${value}`)).roll({async:true});
           r.toMessage({ speaker: ChatMessage.getSpeaker({ actor }), flavor: `<b>${nome}</b>` });
         });
       });
@@ -584,50 +635,39 @@ async function openSkillsDialog(actor) {
   d.render(true);
 }
 
-/* ------------ Inventário: categorias + equipar/des-equipar + usar ------------ */
+/* --------- Consumíveis apenas: busca + usar + abrir -------- */
 async function openInventoryDialog(actor) {
   const items = actor.items || [];
 
-  // heurística leve de categorias
-  const armas = items.filter(i => i.type === "arma");
-  const armaduras = items.filter(i => i.type === "armadura" || i.type === "escudo");
+  // Somente consumíveis (tipos comuns + heurística por categoria do sistema)
   const consumiveis = items.filter(i =>
     ["consumivel","consumable","po","pocao","elixir"].includes((i.type||"").toLowerCase()) ||
     /consum/i.test(i.system?.categoria || "")
   );
-  const outros = items.filter(i => ![...armas, ...armaduras, ...consumiveis].includes(i));
 
-  const section = (titulo, arr, tipo) => `
-    <div class="t20-inv-section">
-      <div class="t20-inv-title">${titulo} (${arr.length})</div>
-      <div class="t20-inv-grid">
-        ${arr.map(it => {
-          const eq = it.system?.equipado === 1 || it.system?.equipado === true;
-          const qtd = it.system?.quantidade ?? it.system?.qtd ?? it.system?.quantity ?? 1;
-          return `
-            <div class="t20-inv-item"
-                 data-id="${it.id}"
-                 data-type="${tipo}"
-                 data-name="${(it.name||'').toLowerCase()}">
-              <img class="t20-inv-icon" src="${it.img}" alt="${it.name}">
-              <div class="t20-inv-info">
-                <div class="t20-inv-name"><strong>${it.name}</strong></div>
-                <div class="t20-inv-meta">
-                  ${typeof qtd !== "undefined" ? `Qtd: <b>${qtd}</b>` : ""}
-                  ${tipo !== "cons" ? ` ${eq ? ' | <span class="t20-inv-eq">Equipado</span>' : ''}` : ""}
-                </div>
-                <div class="t20-inv-actions">
-                  ${tipo !== "cons" ? `<button class="t20-inv-equip">${eq ? "Des-equipar" : "Equipar"}</button>` : ""}
-                  ${tipo === "cons" ? `<button class="t20-inv-use">Usar</button>` : ""}
-                  <button class="t20-inv-roll">Abrir</button>
-                </div>
-              </div>
-            </div>
-          `;
-        }).join("")}
+  if (!consumiveis.length) {
+    ui.notifications.warn("Nenhum consumível encontrado.");
+    return;
+  }
+
+  const listHtml = consumiveis.map(it => {
+    const qtd = it.system?.quantidade ?? it.system?.qtd ?? it.system?.quantity ?? 1;
+    return `
+      <div class="t20-inv-item"
+           data-id="${it.id}"
+           data-name="${(it.name||'').toLowerCase()}">
+        <img class="t20-inv-icon" src="${it.img}" alt="${it.name}">
+        <div class="t20-inv-info">
+          <div class="t20-inv-name"><strong>${it.name}</strong></div>
+          <div class="t20-inv-meta">Qtd: <b>${qtd}</b></div>
+          <div class="t20-inv-actions">
+            <button class="t20-inv-use">Usar</button>
+            <button class="t20-inv-roll">Abrir</button>
+          </div>
+        </div>
       </div>
-    </div>
-  `;
+    `;
+  }).join("");
 
   const content = `
     <style>
@@ -640,28 +680,30 @@ async function openInventoryDialog(actor) {
       .t20-inv-actions{display:flex;gap:6px;flex-wrap:wrap}
       .t20-inv-actions button{background:#1e1e1e;border:1px solid #555;border-radius:6px;color:#fff;cursor:pointer;padding:4px 6px}
       .t20-inv-actions button:hover{background:#333}
-      .t20-inv-eq{color:gold}
       .t20-inv-filter{display:flex;gap:8px;margin-bottom:8px}
     </style>
 
     <div class="t20-inv-filter">
-      <input type="text" id="t20-search" placeholder="Buscar item…">
+      <input type="text" id="t20-search" placeholder="Buscar consumível…">
     </div>
 
-    ${section("Armas", armas, "arma")}
-    ${section("Armaduras/Escudos", armaduras, "arm")}
-    ${section("Consumíveis", consumiveis, "cons")}
-    ${section("Outros", outros, "out")}
+    <div class="t20-inv-section">
+      <div class="t20-inv-title">Consumíveis (${consumiveis.length})</div>
+      <div class="t20-inv-grid">
+        ${listHtml}
+      </div>
+    </div>
   `;
 
   const d = new Dialog({
-    title: "Inventário",
+    title: "Consumíveis",
     content,
     buttons: { fechar: { label: "Fechar" } },
     render: (html) => {
       const root = html[0];
       const search = root.querySelector("#t20-search");
 
+      // Busca por nome
       const applySearch = () => {
         const term = (search.value || "").toLowerCase();
         root.querySelectorAll(".t20-inv-item").forEach(el => {
@@ -670,42 +712,34 @@ async function openInventoryDialog(actor) {
       };
       search.addEventListener("input", applySearch);
 
-      // ações
-      root.querySelectorAll(".t20-inv-equip").forEach(btn => {
-        btn.addEventListener("click", async (e) => {
-          const card = e.currentTarget.closest(".t20-inv-item");
-          const item = actor.items.get(card.dataset.id);
-          const equipped = item.system?.equipado === 1 || item.system?.equipado === true;
-          const newVal = equipped ? 0 : 1;
-          await item.update({ "system.equipado": newVal });
-          ui.notifications.info(`${equipped ? "Des-equipado" : "Equipado"}: ${item.name}`);
-          renderHUD(actor);
-          openInventoryDialog(actor); // reabrir atualizado
-        });
-      });
-
+      // Usar consumível (decrementa quantidade e rola a carta)
       root.querySelectorAll(".t20-inv-use").forEach(btn => {
         btn.addEventListener("click", async (e) => {
           const card = e.currentTarget.closest(".t20-inv-item");
           const item = actor.items.get(card.dataset.id);
+
           const paths = ["system.quantidade", "system.qtd", "system.quantity"];
           let qtyPath = null, qtyVal = null;
           for (const p of paths) {
             const v = foundry.utils.getProperty(item, p);
             if (typeof v !== "undefined") { qtyPath = p; qtyVal = Number(v)||0; break; }
           }
+
           if (qtyPath) {
             if (qtyVal <= 0) return ui.notifications.warn(`Sem unidades de: ${item.name}`);
             await item.update({ [qtyPath]: Math.max(0, qtyVal - 1) });
           }
-          // tentar rolar a ficha do item
+
           const event = new MouseEvent("click", { shiftKey: true });
           item?.roll?.({ event });
           ChatMessage.create({ speaker: ChatMessage.getSpeaker({actor}), content: `<b>Usou:</b> ${item.name}` });
+
+          // Reabrir atualizado
           openInventoryDialog(actor);
         });
       });
 
+      // Abrir carta do item (sem consumir)
       root.querySelectorAll(".t20-inv-roll").forEach(btn => {
         btn.addEventListener("click", (e) => {
           const card = e.currentTarget.closest(".t20-inv-item");
@@ -716,17 +750,18 @@ async function openInventoryDialog(actor) {
       });
     }
   });
+
   d.render(true);
 }
 
-/* ------------ Drag util ------------ */
+/* --------------------- Drag util --------------------- */
 function makeDraggable(hudEl) {
   const inner = hudEl.querySelector(".t20-quickbar-inner");
   if (!inner) return;
   let dragging = false, startX = 0, startY = 0, startLeft = 0, startBottom = 0;
 
   const onMouseDown = (e) => {
-    if (e.target.closest(".t20-button") || e.target.closest(".t20-collapse") || e.target.closest(".t20-fav")) return;
+    if (e.target.closest(".t20-button") || e.target.closest(".t20-collapse") || e.target.closest(".t20-help") || e.target.closest(".t20-fav")) return;
     dragging = true; hudEl.classList.add("dragging");
     startX = e.clientX; startY = e.clientY;
     const rect = hudEl.getBoundingClientRect();
@@ -753,7 +788,7 @@ function makeDraggable(hudEl) {
   inner.addEventListener("mousedown", onMouseDown);
 }
 
-/* ------------ Ready: render + hotkeys ------------ */
+/* ---------------- Ready: render + hotkeys --------------- */
 Hooks.once("ready", async () => {
   if (!game.settings.get("hud-combate-t20", "exibirBarra")) return;
 
@@ -771,33 +806,37 @@ Hooks.once("ready", async () => {
   });
 
   Hooks.on("updateItem", async (item) => {
-    const controlled = canvas.tokens.controlled[0];
-    if (!controlled) return;
-    if (item.parent?.id === controlled.actor.id && ["arma","poder","magia","armadura","escudo"].includes(item.type)) {
-      await renderHUD(controlled.actor);
+    const current = canvas.tokens.controlled[0];
+    if (!current) return;
+    if (item.parent?.id === current.actor.id && ["arma","poder","magia","armadura","escudo"].includes(item.type)) {
+      await renderHUD(current.actor);
     }
   });
 
-  // Teclas de atalho: A (ataque), P (poderes), M (magias), R (peRícias), I (inventário)
+  // Hotkeys
   document.addEventListener("keydown", (e) => {
     const tag = (document.activeElement?.tagName || "").toLowerCase();
     if (tag === "input" || tag === "textarea" || document.activeElement?.isContentEditable) return;
+
     const actor = canvas.tokens.controlled[0]?.actor;
     if (!actor) return;
 
     const key = e.key?.toLowerCase();
+
     if (key === "a") return void clickTab("ataque", actor);
     if (key === "p") return void clickTab("poderes", actor);
     if (key === "m") return void clickTab("magias", actor);
     if (key === "r") return void clickTab("pericias", actor);
     if (key === "i") return void clickTab("inventario", actor);
+
+    if (key === "h" || key === "?") return showHotkeysDialog();
   });
 });
 
 function clickTab(tab, actor) {
-  if (tab === "ataque") return document.querySelector('.t20-button[data-tab="ataque"]')?.click();
-  if (tab === "poderes") return openPowersDialog(actor);
-  if (tab === "magias") return openSpellsDialog(actor);
-  if (tab === "pericias") return openSkillsDialog(actor);
-  if (tab === "inventario") return openInventoryDialog(actor);
+  if (tab === "ataque")    return document.querySelector('.t20-button[data-tab="ataque"]')?.click();
+  if (tab === "poderes")   return openPowersDialog(actor);
+  if (tab === "magias")    return openSpellsDialog(actor);
+  if (tab === "pericias")  return openSkillsDialog(actor);
+  if (tab === "inventario")return openInventoryDialog(actor);
 }
