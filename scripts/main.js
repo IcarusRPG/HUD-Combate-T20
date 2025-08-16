@@ -635,11 +635,11 @@ async function openSkillsDialog(actor) {
   d.render(true);
 }
 
-/* --------- Consumíveis: só "Usar" (mensagem → qty-- → usar) --------- */
+/* --------- Consumíveis: só "Usar" (sem duplo consumo) --------- */
 async function openInventoryDialog(actor) {
   const items = actor.items || [];
 
-  // Apenas consumíveis (tipos comuns + heurística por categoria do sistema)
+  // Apenas consumíveis (tipos comuns + heurística por categoria)
   const consumiveis = items.filter(i =>
     ["consumivel","consumable","po","pocao","elixir"].includes((i.type||"").toLowerCase()) ||
     /consum/i.test(i.system?.categoria || "")
@@ -650,13 +650,10 @@ async function openInventoryDialog(actor) {
     return;
   }
 
-  // Lista com APENAS o botão "Usar"
   const listHtml = consumiveis.map(it => {
     const qtd = it.system?.quantidade ?? it.system?.qtd ?? it.system?.quantity ?? 1;
     return `
-      <div class="t20-inv-item"
-           data-id="${it.id}"
-           data-name="${(it.name||'').toLowerCase()}">
+      <div class="t20-inv-item" data-id="${it.id}" data-name="${(it.name||'').toLowerCase()}">
         <img class="t20-inv-icon" src="${it.img}" alt="${it.name}">
         <div class="t20-inv-info">
           <div class="t20-inv-name"><strong>${it.name}</strong></div>
@@ -712,38 +709,41 @@ async function openInventoryDialog(actor) {
       };
       search.addEventListener("input", applySearch);
 
-      // USAR: mensagem -> decrementa quantidade -> aciona item sem abrir ficha/dialog
+      // USAR: mensagem -> usa item -> se não consumiu, decrementa 1
       root.querySelectorAll(".t20-inv-use").forEach(btn => {
         btn.addEventListener("click", async (e) => {
           e.preventDefault();
           e.stopPropagation();
 
           const card = e.currentTarget.closest(".t20-inv-item");
-          const item = actor.items.get(card.dataset.id);
+          const itemId = card.dataset.id;
+          let item = actor.items.get(itemId);
           if (!item) return;
 
-          // 1) Mensagem
+          // Caminho da quantidade (detecta uma vez)
+          const qtyPaths = ["system.quantidade", "system.qtd", "system.quantity"];
+          let qtyPath = null;
+          for (const p of qtyPaths) {
+            if (typeof foundry.utils.getProperty(item, p) !== "undefined") { qtyPath = p; break; }
+          }
+          const getQty = (doc) => {
+            const v = qtyPath ? foundry.utils.getProperty(doc, qtyPath) : undefined;
+            return (typeof v === "number") ? v : Number(v);
+          };
+
+          const beforeQty = getQty(item);
+          if (Number.isFinite(beforeQty) && beforeQty <= 0) {
+            ui.notifications.warn(`Sem unidades de: ${item.name}`);
+            return;
+          }
+
+          // 1) Mensagem "Usou"
           await ChatMessage.create({
             speaker: ChatMessage.getSpeaker({ actor }),
             content: `<b>Usou:</b> ${item.name}`
           });
 
-          // 2) Decrementa quantidade (suporta vários schemas)
-          const paths = ["system.quantidade", "system.qtd", "system.quantity"];
-          let qtyPath = null, qtyVal = null;
-          for (const p of paths) {
-            const v = foundry.utils.getProperty(item, p);
-            if (typeof v !== "undefined") { qtyPath = p; qtyVal = Number(v)||0; break; }
-          }
-          if (qtyPath) {
-            if (qtyVal <= 0) {
-              ui.notifications.warn(`Sem unidades de: ${item.name}`);
-              return;
-            }
-            await item.update({ [qtyPath]: Math.max(0, qtyVal - 1) });
-          }
-
-          // 3) Usar automaticamente (sem abrir janelas)
+          // 2) Usar automaticamente SEM abrir diálogo
           try {
             if (typeof item.use === "function") {
               await item.use({ configureDialog: false, fastForward: true, skipDialog: true, createMessage: true });
@@ -754,10 +754,24 @@ async function openInventoryDialog(actor) {
             }
           } catch (err) {
             console.error(err);
-            ui.notifications.warn("Item usado, mas não foi possível executar efeitos automáticos.");
+            ui.notifications.warn("Não foi possível executar os efeitos automáticos do item (mas a mensagem foi enviada).");
           }
 
-          // Atualiza a UI: fecha e reabre o diálogo para refletir a nova quantidade
+          // 3) Verifica se o sistema já consumiu; se não, decrementa 1 como fallback
+          //    Recarrega a referência (o sistema pode ter atualizado o item)
+          item = actor.items.get(itemId) || item;
+          const afterQty = getQty(item);
+
+          if (Number.isFinite(beforeQty) && Number.isFinite(afterQty)) {
+            if (afterQty === beforeQty && qtyPath) {
+              await item.update({ [qtyPath]: Math.max(0, beforeQty - 1) });
+            }
+          } else if (qtyPath && Number.isFinite(beforeQty)) {
+            // Se o sistema não tem quantidade numérica, ainda assim tentamos consumir 1
+            await item.update({ [qtyPath]: Math.max(0, beforeQty - 1) });
+          }
+
+          // Reabrir atualizado
           d.close();
           openInventoryDialog(actor);
         });
@@ -767,6 +781,7 @@ async function openInventoryDialog(actor) {
 
   d.render(true);
 }
+
 
 /* --------------------- Drag util --------------------- */
 function makeDraggable(hudEl) {
