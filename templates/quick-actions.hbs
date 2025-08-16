@@ -1,5 +1,5 @@
-<div class="t20-quickbar">
-  <div class="t20-quickbar-inner">
+<div class="t20-quickbar {{#if colapsado}}t20-collapsed{{/if}}" style="{{posStyle}}">
+  <div class="t20-quickbar-inner" data-draggable="true">
     <div class="t20-info">
       <img class="t20-avatar" src="{{img}}" alt="{{nome}}" />
       <div class="t20-nome">{{nome}}</div>
@@ -9,12 +9,30 @@
         <div><strong>DEF:</strong> {{def}}</div>
       </div>
     </div>
-    <div class="t20-buttons">
-      {{#each buttons}}
-        <div class="t20-button" data-tab="{{tab}}" title="{{label}}">
-          <img src="{{icon}}" alt="{{label}}" />
+
+    <div class="t20-main">
+      <div class="t20-toprow">
+        <div class="t20-buttons">
+          {{#each buttons}}
+            <div class="t20-button" data-tab="{{tab}}" title="{{label}}">
+              <img src="{{icon}}" alt="{{label}}" />
+            </div>
+          {{/each}}
         </div>
-      {{/each}}
+        <button class="t20-collapse" title="Recolher/Expandir" aria-label="Recolher/Expandir">▾</button>
+      </div>
+
+      <div class="t20-favs" aria-label="Ações Favoritas">
+        {{#if favoritos.length}}
+          {{#each favoritos}}
+            <div class="t20-fav" data-type="{{type}}" data-id="{{id}}" title="{{name}}">
+              <img src="{{img}}" alt="{{name}}" />
+            </div>
+          {{/each}}
+        {{else}}
+          <div class="t20-favs-empty">Adicione favoritos com clique direito nos cards.</div>
+        {{/if}}
+      </div>
     </div>
   </div>
 </div>

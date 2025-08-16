@@ -77,3 +77,53 @@
   max-width: 80%;
   max-height: 80%;
 }
+
+/* Linha superior com botões + collapse */
+.t20-main { display: flex; flex-direction: column; gap: 8px; }
+.t20-toprow { display: flex; align-items: center; gap: 8px; }
+.t20-collapse {
+  width: 28px; height: 28px; border-radius: 6px; border: 1px solid #555;
+  background: #1e1e1e; color: #fff; cursor: pointer;
+}
+.t20-collapse:hover { background: #444; }
+
+/* Favoritos */
+.t20-favs {
+  display: flex; gap: 8px; align-items: center;
+  background: rgba(255,255,255,0.05);
+  border: 1px dashed #555; border-radius: 8px;
+  padding: 6px 8px; min-height: 48px;
+}
+.t20-favs-empty { opacity: 0.7; font-size: 0.85rem; }
+.t20-fav {
+  width: 40px; height: 40px; border-radius: 6px; border: 1px solid #555;
+  background: #1e1e1e; display: flex; justify-content: center; align-items: center;
+  cursor: pointer;
+}
+.t20-fav img { max-width: 80%; max-height: 80%; }
+
+/* Recolhido */
+.t20-collapsed .t20-favs,
+.t20-collapsed .t20-info .t20-atributos { display: none; }
+.t20-collapsed .t20-avatar { width: 48px; height: 48px; }
+.t20-collapsed .t20-quickbar-inner { gap: 8px; }
+
+/* Drag feedback */
+.t20-quickbar.dragging { box-shadow: 0 0 18px #000; opacity: 0.95; cursor: move; }
+
+/* Campos de busca/ordenar nos diálogos */
+.t20-filterbar {
+  display: flex; gap: 8px; margin-bottom: 8px; align-items: center;
+}
+.t20-filterbar input, .t20-filterbar select {
+  background: #1e1e1e; color: #fff; border: 1px solid #555; border-radius: 6px;
+  padding: 4px 8px; height: 28px;
+}
+
+/* Realce de favorito nos cards */
+.t20-poder-item.favorited { outline: 2px solid gold; }
+.t20-fav-badge {
+  position: absolute; top: 4px; right: 4px;
+  background: gold; color: #000; font-weight: bold; font-size: 0.7rem;
+  border-radius: 4px; padding: 0 4px;
+}
