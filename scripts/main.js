@@ -8,7 +8,7 @@ Hooks.once("init", () => {
     default: true
   });
 
-  // ★ NOVO: posição e estado recolhido
+  // posição, recolhido e favoritos (cliente)
   game.settings.register("hud-combate-t20", "posicaoHUD", {
     name: "Posição da HUD",
     scope: "client",
@@ -16,7 +16,6 @@ Hooks.once("init", () => {
     type: Object,
     default: { left: null, bottom: 10 }
   });
-
   game.settings.register("hud-combate-t20", "hudColapsada", {
     name: "HUD recolhida",
     scope: "client",
@@ -24,8 +23,6 @@ Hooks.once("init", () => {
     type: Boolean,
     default: false
   });
-
-  // ★ NOVO: favoritos por ator
   game.settings.register("hud-combate-t20", "favoritos", {
     name: "Favoritos por Ator",
     scope: "client",
@@ -35,7 +32,7 @@ Hooks.once("init", () => {
   });
 });
 
-// ★ NOVO: helpers de favoritos
+/* ------------ Helpers (favoritos/pos) ------------ */
 function getFavsFor(actorId) {
   const all = game.settings.get("hud-combate-t20", "favoritos") || {};
   return Array.isArray(all[actorId]) ? all[actorId] : [];
@@ -45,21 +42,13 @@ function setFavsFor(actorId, list) {
   all[actorId] = list;
   game.settings.set("hud-combate-t20", "favoritos", all);
 }
-function isFav(actorId, type, id) {
-  return getFavsFor(actorId).some(f => f.type === type && f.id === id);
-}
 function toggleFav(actor, type, item) {
   const list = getFavsFor(actor.id);
   const idx = list.findIndex(f => f.type === type && f.id === item.id);
-  if (idx >= 0) {
-    list.splice(idx, 1);
-  } else {
-    list.push({ type, id: item.id, name: item.name, img: item.img });
-  }
+  if (idx >= 0) list.splice(idx, 1);
+  else list.push({ type, id: item.id, name: item.name, img: item.img });
   setFavsFor(actor.id, list);
 }
-
-// ★ NOVO: posição
 function getHUDPosStyle() {
   const pos = game.settings.get("hud-combate-t20", "posicaoHUD") || { left: null, bottom: 10 };
   const parts = [];
@@ -69,28 +58,24 @@ function getHUDPosStyle() {
   return parts.join("");
 }
 
+/* ------------ Render HUD ------------ */
 async function renderHUD(actor) {
   const existing = document.querySelector(".t20-quickbar");
   if (existing) existing.remove();
   if (!actor) return;
 
   const armaEquipada = actor.items.find(i =>
-    i.type === "arma" &&
-    i.system?.equipado === 1 &&
-    i.system?.equipado2?.type === "hand"
+    i.type === "arma" && i.system?.equipado === 1 && i.system?.equipado2?.type === "hand"
   );
   const armaIcon = armaEquipada?.img ?? "icons/svg/sword.svg";
 
   const buttons = [
-    { id: "ataque",    label: "ATAQUE",    icon: armaIcon,                                           tab: "ataque" },
-    { id: "pericias",  label: "PERÍCIAS",  icon: "modules/hud-combate-t20/img/pericias.png",         tab: "pericias" },
-    { id: "poderes",   label: "PODERES",   icon: "modules/hud-combate-t20/img/poderes.png",          tab: "poderes" },
-    { id: "magias",    label: "MAGIAS",    icon: "modules/hud-combate-t20/img/magias.png",           tab: "magias" },
-    { id: "inventario",label: "INVENTÁRIO",icon: "modules/hud-combate-t20/img/inventario.png",       tab: "inventario" }
+    { id: "ataque",    label: "ATAQUE",     icon: armaIcon,                                           tab: "ataque" },
+    { id: "pericias",  label: "PERÍCIAS",   icon: "modules/hud-combate-t20/img/pericias.png",         tab: "pericias" },
+    { id: "poderes",   label: "PODERES",    icon: "modules/hud-combate-t20/img/poderes.png",          tab: "poderes" },
+    { id: "magias",    label: "MAGIAS",     icon: "modules/hud-combate-t20/img/magias.png",           tab: "magias" },
+    { id: "inventario",label: "INVENTÁRIO", icon: "modules/hud-combate-t20/img/inventario.png",       tab: "inventario" }
   ];
-
-  // ★ NOVO: favoritos do ator
-  const favoritos = getFavsFor(actor.id);
 
   const context = {
     buttons,
@@ -99,7 +84,7 @@ async function renderHUD(actor) {
     pv: `${actor.system?.attributes?.pv?.value ?? "—"} / ${actor.system?.attributes?.pv?.max ?? "—"}`,
     pm: `${actor.system?.attributes?.pm?.value ?? "—"} / ${actor.system?.attributes?.pm?.max ?? "—"}`,
     def: actor.system?.attributes?.defesa?.value ?? "—",
-    favoritos,
+    favoritos: getFavsFor(actor.id),
     colapsado: game.settings.get("hud-combate-t20", "hudColapsada"),
     posStyle: getHUDPosStyle()
   };
@@ -111,7 +96,7 @@ async function renderHUD(actor) {
 
   const hudEl = document.querySelector(".t20-quickbar");
 
-  // ★ NOVO: clique nos favoritos
+  // favoritos (clique)
   document.querySelectorAll(".t20-fav").forEach(f => {
     f.addEventListener("click", () => {
       const type = f.dataset.type; const id = f.dataset.id;
@@ -123,54 +108,40 @@ async function renderHUD(actor) {
     });
   });
 
-  // ★ NOVO: collapse
+  // collapse
   hudEl.querySelector(".t20-collapse")?.addEventListener("click", () => {
     const current = game.settings.get("hud-combate-t20", "hudColapsada");
     game.settings.set("hud-combate-t20", "hudColapsada", !current);
     hudEl.classList.toggle("t20-collapsed", !current);
   });
 
-  // ★ NOVO: drag para mover e salvar posição
+  // drag
   makeDraggable(hudEl);
 
-  // Botões padrão
+  // botões
   document.querySelectorAll(".t20-button").forEach(button => {
     button.addEventListener("click", async () => {
       const tab = button.dataset.tab;
       const selectedActor = canvas.tokens.controlled[0]?.actor || actor;
       if (!selectedActor) return;
 
-      if (tab === "poderes") {
-        await openPowersDialog(selectedActor);
-        return;
-      }
-
-      if (tab === "magias") {
-        await openSpellsDialog(selectedActor);
-        return;
-      }
+      if (tab === "poderes")     return void openPowersDialog(selectedActor);
+      if (tab === "magias")      return void openSpellsDialog(selectedActor);
+      if (tab === "pericias")    return void openSkillsDialog(selectedActor);
+      if (tab === "inventario")  return void openInventoryDialog(selectedActor);
 
       if (tab === "ataque") {
         const armas = selectedActor.items.filter(i =>
-          i.type === "arma" &&
-          i.system?.equipado === 1 &&
-          i.system?.equipado2?.type === "hand"
+          i.type === "arma" && i.system?.equipado === 1 && i.system?.equipado2?.type === "hand"
         );
+        if (!armas.length) return ui.notifications.warn("Nenhuma arma equipada na mão principal encontrada.");
 
-        if (armas.length === 0) {
-          ui.notifications.warn("Nenhuma arma equipada na mão principal encontrada.");
-          return;
-        }
-
-        const abrirJanelaDeAtaque = (arma) => {
+        const abrir = (arma) => {
           const event = new MouseEvent("click", { shiftKey: true });
           arma.roll({ event });
         };
 
-        if (armas.length === 1) {
-          abrirJanelaDeAtaque(armas[0]);
-          return;
-        }
+        if (armas.length === 1) return abrir(armas[0]);
 
         const dialogContent = `
           <p>Escolha a arma para atacar:</p>
@@ -179,7 +150,6 @@ async function renderHUD(actor) {
           </select>
           <button id="confirmarAtaque">Abrir Janela</button>
         `;
-
         const d = new Dialog({
           title: "Escolher Arma",
           content: dialogContent,
@@ -190,69 +160,55 @@ async function renderHUD(actor) {
             btn.addEventListener("click", () => {
               const armaId = select.value;
               const arma = armas.find(a => a.id === armaId);
-              abrirJanelaDeAtaque(arma);
+              abrir(arma);
               d.close();
             });
           }
         });
-
         d.render(true);
-        return;
       }
-
-      if (tab === "pericias") {
-        ui.notifications.info("Perícias: posso implementar um seletor com rolagem por atributo e treino, se quiser.");
-        return;
-      }
-
-      if (tab === "inventario") {
-        ui.notifications.info("Inventário: posso listar itens/usar/consumir e equipar/des-equipar por aqui.");
-        return;
-      }
-
-      ui.notifications.info(`Você clicou em: ${tab}`);
     });
   });
 }
 
-// ★ NOVO: diálogo com busca/filtro/favoritos (PODERES)
+/* ------------ Poderes: busca + ordem + filtros avançados ------------ */
 async function openPowersDialog(selectedActor) {
   const poderes = selectedActor.items.filter(i => i.type === "poder");
-  if (poderes.length === 0) {
-    ui.notifications.warn("Nenhum poder encontrado.");
-    return;
-  }
-
-  const actorId = selectedActor.id;
-  const favs = getFavsFor(actorId);
+  if (!poderes.length) return ui.notifications.warn("Nenhum poder encontrado.");
+  const favs = getFavsFor(selectedActor.id);
 
   const listHtml = poderes.map(p => {
     const tipo = p.system?.tipo || "—";
     const ativ = p.system?.ativacao || {};
     const exec = ativ.execucao && ativ.execucao !== "passive" ? ativ.execucao : "";
     const cond = ativ.condicao || "";
-    const custo = ativ.custo > 0 ? `${ativ.custo} PM` : "";
-    const ativacao = [cond, exec, custo].filter(v => v).join(", ") || "—";
-    const alcance = p.system?.alcance;
-    const alvo = p.system?.alvo;
-    const area = p.system?.area;
-    const infoExtras = [
-      alcance && alcance !== "none" ? `<div><strong>Alcance:</strong> ${alcance}</div>` : "",
-      alvo ? `<div><strong>Alvo:</strong> ${alvo}</div>` : "",
-      area ? `<div><strong>Área:</strong> ${area}</div>` : ""
-    ].join("");
+    const custoNum = Number(ativ.custo ?? 0) || 0;
+    const custo = custoNum > 0 ? `${custoNum} PM` : "";
+    const ativacao = [cond, exec, custo].filter(Boolean).join(", ") || "—";
+    const alcance = p.system?.alcance ?? "";
+    const alvo = p.system?.alvo ?? "";
+    const area = p.system?.area ?? "";
     const fav = favs.some(f => f.type === 'poder' && f.id === p.id);
-    const descricao = p.system?.description?.value?.replace(/"/g, '&quot;') || "Sem descrição";
-
+    const desc = p.system?.description?.value?.replace(/"/g, '&quot;') || "Sem descrição";
     return `
-      <div class="t20-poder-item ${fav ? 'favorited':''}" data-id="${p.id}" data-desc="${descricao}" data-name="${p.name.toLowerCase()}" data-tipo="${String(tipo).toLowerCase()}">
+      <div class="t20-poder-item ${fav ? 'favorited':''}"
+           data-id="${p.id}"
+           data-desc="${desc}"
+           data-name="${(p.name||'').toLowerCase()}"
+           data-tipo="${String(tipo).toLowerCase()}"
+           data-custo="${custoNum}"
+           data-alcance="${String(alcance).toLowerCase()}"
+           data-alvo="${String(alvo).toLowerCase()}"
+           data-area="${String(area).toLowerCase()}">
         ${fav ? '<span class="t20-fav-badge">★</span>' : ''}
         <img class="t20-poder-icon" src="${p.img}" />
         <div class="t20-poder-info">
           <div class="t20-poder-nome">${p.name}</div>
           <div><strong>Tipo:</strong> ${tipo}</div>
           <div><strong>Ativação:</strong> ${ativacao}</div>
-          ${infoExtras}
+          ${alcance ? `<div><strong>Alcance:</strong> ${alcance}</div>` : ""}
+          ${alvo ? `<div><strong>Alvo:</strong> ${alvo}</div>` : ""}
+          ${area ? `<div><strong>Área:</strong> ${area}</div>` : ""}
         </div>
       </div>
     `;
@@ -260,16 +216,13 @@ async function openPowersDialog(selectedActor) {
 
   const content = `
     <style>
-      .t20-poderes-grid {
-        display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
-        max-height: 500px; overflow-y: auto; font-family: sans-serif;
-      }
-      .t20-poder-item { display:flex; gap:10px; padding:6px; border:1px solid #666; border-radius:6px; background:#1e1e1e; color:white; align-items:center; cursor:pointer; position:relative; }
-      .t20-poder-item:hover { background:#333; }
-      .t20-poder-icon { width:36px; height:36px; object-fit:cover; border-radius:4px; border:1px solid #aaa; }
-      .t20-poder-info { display:flex; flex-direction:column; font-size:0.85rem; }
-      .t20-poder-nome { font-weight:bold; }
-      .t20-poder-tooltip { position:fixed; background:#222; color:white; padding:8px; border-radius:6px; max-width:300px; font-size:0.8rem; box-shadow:0 0 6px black; z-index:99999; display:none; pointer-events:none; white-space:normal; }
+      .t20-poderes-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;max-height:500px;overflow-y:auto;font-family:sans-serif;}
+      .t20-poder-item{display:flex;gap:10px;padding:6px;border:1px solid #666;border-radius:6px;background:#1e1e1e;color:#fff;align-items:center;cursor:pointer;position:relative;}
+      .t20-poder-item:hover{background:#333}
+      .t20-poder-icon{width:36px;height:36px;object-fit:cover;border-radius:4px;border:1px solid #aaa}
+      .t20-poder-info{display:flex;flex-direction:column;font-size:.85rem}
+      .t20-poder-nome{font-weight:bold}
+      .t20-poder-tooltip{position:fixed;background:#222;color:#fff;padding:8px;border-radius:6px;max-width:300px;font-size:.8rem;box-shadow:0 0 6px #000;z-index:99999;display:none;pointer-events:none;white-space:normal}
     </style>
 
     <div class="t20-filterbar">
@@ -280,11 +233,13 @@ async function openPowersDialog(selectedActor) {
         <option value="tipo-asc">Tipo (A→Z)</option>
         <option value="tipo-desc">Tipo (Z→A)</option>
       </select>
+      <input type="number" id="t20-pm-min" min="0" step="1" placeholder="PM ≥" style="width:70px">
+      <input type="text" id="t20-alcance" placeholder="Alcance contém…" style="width:140px">
+      <input type="text" id="t20-alvo" placeholder="Alvo contém…" style="width:120px">
+      <input type="text" id="t20-area" placeholder="Área contém…" style="width:120px">
     </div>
 
-    <div class="t20-poderes-grid" id="t20-grid">
-      ${listHtml}
-    </div>
+    <div class="t20-poderes-grid" id="t20-grid">${listHtml}</div>
     <div class="t20-poder-tooltip" id="tooltip-poder"></div>
   `;
 
@@ -298,41 +253,44 @@ async function openPowersDialog(selectedActor) {
       const grid = root.querySelector("#t20-grid");
       const search = root.querySelector("#t20-search");
       const order = root.querySelector("#t20-order");
+      const pmMin = root.querySelector("#t20-pm-min");
+      const inAlc = root.querySelector("#t20-alcance");
+      const inAlvo = root.querySelector("#t20-alvo");
+      const inArea = root.querySelector("#t20-area");
 
       const applyFilters = () => {
         const term = (search.value || "").toLowerCase();
+        const pm = Number(pmMin.value || 0) || 0;
+        const alc = (inAlc.value || "").toLowerCase();
+        const alvo = (inAlvo.value || "").toLowerCase();
+        const area = (inArea.value || "").toLowerCase();
+
         const cards = Array.from(grid.querySelectorAll(".t20-poder-item"));
-        // filtro
         cards.forEach(c => {
-          const matches = c.dataset.name.includes(term);
-          c.style.display = matches ? "" : "none";
+          const okName = c.dataset.name.includes(term);
+          const okPM   = Number(c.dataset.custo || 0) >= pm;
+          const okAlc  = !alc  || c.dataset.alcance.includes(alc);
+          const okAlvo = !alvo || c.dataset.alvo.includes(alvo);
+          const okArea = !area || c.dataset.area.includes(area);
+          c.style.display = (okName && okPM && okAlc && okAlvo && okArea) ? "" : "none";
         });
-        // ordenação
+
         const visible = cards.filter(c => c.style.display !== "none");
         const [field, dir] = order.value.split("-");
         visible.sort((a,b) => {
-          const av = a.dataset[field] || a.dataset.name;
-          const bv = b.dataset[field] || b.dataset.name;
+          const av = (a.dataset[field] || a.dataset.name) ?? "";
+          const bv = (b.dataset[field] || b.dataset.name) ?? "";
           return dir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
         }).forEach(el => grid.appendChild(el));
       };
 
-      search.addEventListener("input", applyFilters);
-      order.addEventListener("change", applyFilters);
+      [search, order, pmMin, inAlc, inAlvo, inArea].forEach(el => el.addEventListener("input", applyFilters));
 
-      // tooltip + click + favorito via botão direito
       grid.querySelectorAll(".t20-poder-item").forEach(el => {
-        el.addEventListener("mouseenter", () => {
-          tooltip.innerHTML = el.dataset.desc;
-          tooltip.style.display = "block";
-        });
-        el.addEventListener("mouseleave", () => {
-          tooltip.style.display = "none";
-        });
+        el.addEventListener("mouseenter", () => { tooltip.innerHTML = el.dataset.desc; tooltip.style.display = "block"; });
+        el.addEventListener("mouseleave", () => { tooltip.style.display = "none"; });
         el.addEventListener("mousemove", (e) => {
-          tooltip.style.top = `${e.clientY}px`;
-          tooltip.style.left = `${e.clientX}px`;
-          tooltip.style.transform = "translate(10px, 5px)";
+          tooltip.style.top = `${e.clientY}px`; tooltip.style.left = `${e.clientX}px`; tooltip.style.transform = "translate(10px, 5px)";
         });
         el.addEventListener("click", () => {
           const id = el.dataset.id;
@@ -348,64 +306,57 @@ async function openPowersDialog(selectedActor) {
           toggleFav(selectedActor, "poder", item);
           el.classList.toggle("favorited");
           if (el.classList.contains("favorited")) {
-            const b = document.createElement("span");
-            b.className = "t20-fav-badge";
-            b.textContent = "★";
-            el.appendChild(b);
-          } else {
-            el.querySelector(".t20-fav-badge")?.remove();
-          }
-          // atualiza HUD para refletir favoritos
+            const b = document.createElement("span"); b.className = "t20-fav-badge"; b.textContent = "★"; el.appendChild(b);
+          } else el.querySelector(".t20-fav-badge")?.remove();
           renderHUD(selectedActor);
         });
       });
     }
   });
-
   d.render(true);
 }
 
-// ★ NOVO: diálogo com busca/filtro/favoritos (MAGIAS)
+/* ------------ Magias: busca + ordem + filtros avançados ------------ */
 async function openSpellsDialog(selectedActor) {
   const magias = selectedActor.items.filter(i => i.type === "magia");
-  if (magias.length === 0) {
-    ui.notifications.warn("Nenhuma magia encontrada.");
-    return;
-  }
-
-  const actorId = selectedActor.id;
-  const favs = getFavsFor(actorId);
+  if (!magias.length) return ui.notifications.warn("Nenhuma magia encontrada.");
+  const favs = getFavsFor(selectedActor.id);
 
   const listHtml = magias.map(m => {
     const tipo = m.system?.tipo || "—";
     const ativ = m.system?.ativacao || {};
     const exec = ativ.execucao && ativ.execucao !== "passive" ? ativ.execucao : "";
     const cond = ativ.condicao || "";
-    const custo = ativ.custo > 0 ? `${ativ.custo} PM` : "";
-    const ativacao = [cond, exec, custo].filter(v => v).join(", ") || "—";
-    const alcance = m.system?.alcance;
-    const alvo = m.system?.alvo;
-    const area = m.system?.area;
-    const infoExtras = [
-      alcance && alcance !== "none" ? `<div><strong>Alcance:</strong> ${alcance}</div>` : "",
-      alvo ? `<div><strong>Alvo:</strong> ${alvo}</div>` : "",
-      area ? `<div><strong>Área:</strong> ${area}</div>` : ""
-    ].join("");
+    const custoNum = Number(ativ.custo ?? 0) || 0;
+    const custo = custoNum > 0 ? `${custoNum} PM` : "";
+    const ativacao = [cond, exec, custo].filter(Boolean).join(", ") || "—";
+    const alcance = m.system?.alcance ?? "";
+    const alvo = m.system?.alvo ?? "";
+    const area = m.system?.area ?? "";
+    const nivel = String(m.system?.nivel ?? "");
     const fav = favs.some(f => f.type === 'magia' && f.id === m.id);
-    const descricao = m.system?.description?.value?.replace(/"/g, '&quot;') || "Sem descrição";
-
-    // nível (se existir) para futura ordenação
-    const nivel = String(m.system?.nivel ?? "").toLowerCase();
-
+    const desc = m.system?.description?.value?.replace(/"/g, '&quot;') || "Sem descrição";
     return `
-      <div class="t20-poder-item ${fav ? 'favorited':''}" data-id="${m.id}" data-desc="${descricao}" data-name="${m.name.toLowerCase()}" data-tipo="${String(tipo).toLowerCase()}" data-nivel="${nivel}">
+      <div class="t20-poder-item ${fav ? 'favorited':''}"
+           data-id="${m.id}"
+           data-desc="${desc}"
+           data-name="${(m.name||'').toLowerCase()}"
+           data-tipo="${String(tipo).toLowerCase()}"
+           data-custo="${custoNum}"
+           data-nivel="${nivel.toLowerCase()}"
+           data-alcance="${String(alcance).toLowerCase()}"
+           data-alvo="${String(alvo).toLowerCase()}"
+           data-area="${String(area).toLowerCase()}">
         ${fav ? '<span class="t20-fav-badge">★</span>' : ''}
         <img class="t20-poder-icon" src="${m.img}" />
         <div class="t20-poder-info">
           <div class="t20-poder-nome">${m.name}</div>
           <div><strong>Tipo:</strong> ${tipo}</div>
           <div><strong>Ativação:</strong> ${ativacao}</div>
-          ${infoExtras}
+          ${nivel ? `<div><strong>Nível:</strong> ${nivel}</div>` : ""}
+          ${alcance ? `<div><strong>Alcance:</strong> ${alcance}</div>` : ""}
+          ${alvo ? `<div><strong>Alvo:</strong> ${alvo}</div>` : ""}
+          ${area ? `<div><strong>Área:</strong> ${area}</div>` : ""}
         </div>
       </div>
     `;
@@ -413,16 +364,13 @@ async function openSpellsDialog(selectedActor) {
 
   const content = `
     <style>
-      .t20-poderes-grid {
-        display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
-        max-height: 500px; overflow-y: auto; font-family: sans-serif;
-      }
-      .t20-poder-item { display:flex; gap:10px; padding:6px; border:1px solid #666; border-radius:6px; background:#1e1e1e; color:white; align-items:center; cursor:pointer; position:relative; }
-      .t20-poder-item:hover { background:#333; }
-      .t20-poder-icon { width:36px; height:36px; object-fit:cover; border-radius:4px; border:1px solid #aaa; }
-      .t20-poder-info { display:flex; flex-direction:column; font-size:0.85rem; }
-      .t20-poder-nome { font-weight:bold; }
-      .t20-poder-tooltip { position:fixed; background:#222; color:white; padding:8px; border-radius:6px; max-width:300px; font-size:0.8rem; box-shadow:0 0 6px black; z-index:99999; display:none; pointer-events:none; white-space:normal; }
+      .t20-poderes-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;max-height:500px;overflow-y:auto;font-family:sans-serif;}
+      .t20-poder-item{display:flex;gap:10px;padding:6px;border:1px solid #666;border-radius:6px;background:#1e1e1e;color:#fff;align-items:center;cursor:pointer;position:relative;}
+      .t20-poder-item:hover{background:#333}
+      .t20-poder-icon{width:36px;height:36px;object-fit:cover;border-radius:4px;border:1px solid #aaa}
+      .t20-poder-info{display:flex;flex-direction:column;font-size:.85rem}
+      .t20-poder-nome{font-weight:bold}
+      .t20-poder-tooltip{position:fixed;background:#222;color:#fff;padding:8px;border-radius:6px;max-width:300px;font-size:.8rem;box-shadow:0 0 6px #000;z-index:99999;display:none;pointer-events:none;white-space:normal}
     </style>
 
     <div class="t20-filterbar">
@@ -435,11 +383,13 @@ async function openSpellsDialog(selectedActor) {
         <option value="nivel-asc">Nível (↑)</option>
         <option value="nivel-desc">Nível (↓)</option>
       </select>
+      <input type="number" id="t20-pm-min" min="0" step="1" placeholder="PM ≥" style="width:70px">
+      <input type="text" id="t20-alcance" placeholder="Alcance contém…" style="width:140px">
+      <input type="text" id="t20-alvo" placeholder="Alvo contém…" style="width:120px">
+      <input type="text" id="t20-area" placeholder="Área contém…" style="width:120px">
     </div>
 
-    <div class="t20-poderes-grid" id="t20-grid">
-      ${listHtml}
-    </div>
+    <div class="t20-poderes-grid" id="t20-grid">${listHtml}</div>
     <div class="t20-poder-tooltip" id="tooltip-magia"></div>
   `;
 
@@ -453,41 +403,45 @@ async function openSpellsDialog(selectedActor) {
       const grid = root.querySelector("#t20-grid");
       const search = root.querySelector("#t20-search");
       const order = root.querySelector("#t20-order");
+      const pmMin = root.querySelector("#t20-pm-min");
+      const inAlc = root.querySelector("#t20-alcance");
+      const inAlvo = root.querySelector("#t20-alvo");
+      const inArea = root.querySelector("#t20-area");
 
       const applyFilters = () => {
         const term = (search.value || "").toLowerCase();
+        const pm = Number(pmMin.value || 0) || 0;
+        const alc = (inAlc.value || "").toLowerCase();
+        const alvo = (inAlvo.value || "").toLowerCase();
+        const area = (inArea.value || "").toLowerCase();
+
         const cards = Array.from(grid.querySelectorAll(".t20-poder-item"));
-        // filtro
         cards.forEach(c => {
-          const matches = c.dataset.name.includes(term);
-          c.style.display = matches ? "" : "none";
+          const okName = c.dataset.name.includes(term);
+          const okPM   = Number(c.dataset.custo || 0) >= pm;
+          const okAlc  = !alc  || c.dataset.alcance.includes(alc);
+          const okAlvo = !alvo || c.dataset.alvo.includes(alvo);
+          const okArea = !area || c.dataset.area.includes(area);
+          c.style.display = (okName && okPM && okAlc && okAlvo && okArea) ? "" : "none";
         });
-        // ordenação
+
         const visible = cards.filter(c => c.style.display !== "none");
         const [field, dir] = order.value.split("-");
         visible.sort((a,b) => {
           const av = (a.dataset[field] || a.dataset.name) ?? "";
           const bv = (b.dataset[field] || b.dataset.name) ?? "";
-          return dir === "asc" ? av.localeCompare(bv, undefined, {numeric:true}) : bv.localeCompare(av, undefined, {numeric:true});
+          return dir === "asc" ? av.localeCompare(bv, undefined, {numeric:true})
+                               : bv.localeCompare(av, undefined, {numeric:true});
         }).forEach(el => grid.appendChild(el));
       };
 
-      search.addEventListener("input", applyFilters);
-      order.addEventListener("change", applyFilters);
+      [search, order, pmMin, inAlc, inAlvo, inArea].forEach(el => el.addEventListener("input", applyFilters));
 
-      // tooltip + click + favorito
       grid.querySelectorAll(".t20-poder-item").forEach(el => {
-        el.addEventListener("mouseenter", () => {
-          tooltip.innerHTML = el.dataset.desc;
-          tooltip.style.display = "block";
-        });
-        el.addEventListener("mouseleave", () => {
-          tooltip.style.display = "none";
-        });
+        el.addEventListener("mouseenter", () => { tooltip.innerHTML = el.dataset.desc; tooltip.style.display = "block"; });
+        el.addEventListener("mouseleave", () => { tooltip.style.display = "none"; });
         el.addEventListener("mousemove", (e) => {
-          tooltip.style.top = `${e.clientY}px`;
-          tooltip.style.left = `${e.clientX}px`;
-          tooltip.style.transform = "translate(10px, 5px)";
+          tooltip.style.top = `${e.clientY}px`; tooltip.style.left = `${e.clientX}px`; tooltip.style.transform = "translate(10px, 5px)";
         });
         el.addEventListener("click", () => {
           const id = el.dataset.id;
@@ -503,80 +457,303 @@ async function openSpellsDialog(selectedActor) {
           toggleFav(selectedActor, "magia", item);
           el.classList.toggle("favorited");
           if (el.classList.contains("favorited")) {
-            const b = document.createElement("span");
-            b.className = "t20-fav-badge";
-            b.textContent = "★";
-            el.appendChild(b);
-          } else {
-            el.querySelector(".t20-fav-badge")?.remove();
-          }
+            const b = document.createElement("span"); b.className = "t20-fav-badge"; b.textContent = "★"; el.appendChild(b);
+          } else el.querySelector(".t20-fav-badge")?.remove();
           renderHUD(selectedActor);
         });
       });
     }
   });
-
   d.render(true);
 }
 
-// ★ NOVO: drag util
+/* ------------ Perícias: grid + busca + ordem + rolagem ------------ */
+async function openSkillsDialog(actor) {
+  const pericias = actor.system?.pericias || actor.system?.skills || {};
+  const entries = Object.entries(pericias).map(([key, val]) => {
+    const nome = val?.rotulo || val?.label || key;
+    const total = Number(val?.total ?? val?.mod ?? 0) || 0;
+    const atr = (val?.atributo || val?.ability || "").toString();
+    const treinada = !!(val?.treinado ?? val?.trained ?? false);
+    return { key, nome, total, atr, treinada };
+  });
+
+  if (!entries.length) return ui.notifications.warn("Nenhuma perícia encontrada.");
+
+  const listHtml = entries.map(p => `
+    <div class="t20-skill-item"
+         data-key="${p.key}"
+         data-name="${p.nome.toLowerCase()}"
+         data-atr="${p.atr.toLowerCase()}"
+         data-treino="${p.treinada ? 'sim':'nao'}"
+         data-total="${p.total}">
+      <div class="t20-skill-name"><strong>${p.nome}</strong></div>
+      <div class="t20-skill-meta">ATR: ${p.atr || "—"} | Total: ${p.total} | ${p.treinada ? "Treinada" : "Não treinada"}</div>
+      <button class="t20-skill-roll">Rolar</button>
+    </div>
+  `).join("");
+
+  const content = `
+    <style>
+      .t20-skills-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;max-height:500px;overflow-y:auto}
+      .t20-skill-item{display:flex;flex-direction:column;gap:4px;padding:6px;border:1px solid #666;border-radius:6px;background:#1e1e1e;color:#fff}
+      .t20-skill-item button{background:#1e1e1e;border:1px solid #555;border-radius:6px;color:#fff;cursor:pointer;padding:4px 6px}
+      .t20-skill-item button:hover{background:#333}
+      .t20-skill-name{font-size:.95rem}
+      .t20-skill-meta{font-size:.8rem;opacity:.9}
+    </style>
+
+    <div class="t20-filterbar">
+      <input type="text" id="t20-search" placeholder="Buscar perícia..." />
+      <select id="t20-order">
+        <option value="name-asc">Nome (A→Z)</option>
+        <option value="name-desc">Nome (Z→A)</option>
+        <option value="total-desc">Bônus (↓)</option>
+        <option value="total-asc">Bônus (↑)</option>
+      </select>
+      <select id="t20-atr">
+        <option value="">ATR (todas)</option>
+      </select>
+      <select id="t20-treino">
+        <option value="">Treino (todos)</option>
+        <option value="sim">Treinada</option>
+        <option value="nao">Não treinada</option>
+      </select>
+    </div>
+
+    <div class="t20-skills-grid" id="t20-grid">${listHtml}</div>
+  `;
+
+  const d = new Dialog({
+    title: "Perícias",
+    content,
+    buttons: { fechar: { label: "Fechar" } },
+    render: (html) => {
+      const root = html[0];
+      const grid = root.querySelector("#t20-grid");
+      const search = root.querySelector("#t20-search");
+      const order = root.querySelector("#t20-order");
+      const selAtr = root.querySelector("#t20-atr");
+      const selTreino = root.querySelector("#t20-treino");
+
+      // popular ATR únicos
+      const atrs = [...new Set(entries.map(e => e.atr).filter(Boolean))];
+      atrs.forEach(a => {
+        const opt = document.createElement("option");
+        opt.value = a; opt.textContent = a;
+        selAtr.appendChild(opt);
+      });
+
+      const applyFilters = () => {
+        const term = (search.value || "").toLowerCase();
+        const atr = (selAtr.value || "").toLowerCase();
+        const treino = (selTreino.value || "");
+        const cards = Array.from(grid.querySelectorAll(".t20-skill-item"));
+        cards.forEach(c => {
+          const okName = c.dataset.name.includes(term);
+          const okAtr = !atr || c.dataset.atr === atr;
+          const okTreino = !treino || c.dataset.treino === treino;
+          c.style.display = (okName && okAtr && okTreino) ? "" : "none";
+        });
+
+        const visible = cards.filter(c => c.style.display !== "none");
+        const [field, dir] = order.value.split("-");
+        visible.sort((a,b) => {
+          let av, bv;
+          if (field === "name") { av = a.dataset.name; bv = b.dataset.name; }
+          else { av = Number(a.dataset.total || 0); bv = Number(b.dataset.total || 0); }
+          return dir === "asc" ? (av > bv ? 1 : av < bv ? -1 : 0)
+                               : (av < bv ? 1 : av > bv ? -1 : 0);
+        }).forEach(el => grid.appendChild(el));
+      };
+
+      [search, order, selAtr, selTreino].forEach(el => el.addEventListener("input", applyFilters));
+
+      // rolar perícia (genérico)
+      grid.querySelectorAll(".t20-skill-roll").forEach(btn => {
+        btn.addEventListener("click", async (e) => {
+          const item = e.currentTarget.closest(".t20-skill-item");
+          const total = Number(item.dataset.total || 0);
+          const nome = item.querySelector(".t20-skill-name")?.textContent?.trim() || "Perícia";
+          const r = await (new Roll(`1d20 + ${total}`)).roll({async:true});
+          r.toMessage({ speaker: ChatMessage.getSpeaker({ actor }), flavor: `<b>${nome}</b>` });
+        });
+      });
+    }
+  });
+  d.render(true);
+}
+
+/* ------------ Inventário: categorias + equipar/des-equipar + usar ------------ */
+async function openInventoryDialog(actor) {
+  const items = actor.items || [];
+
+  // heurística leve de categorias
+  const armas = items.filter(i => i.type === "arma");
+  const armaduras = items.filter(i => i.type === "armadura" || i.type === "escudo");
+  const consumiveis = items.filter(i =>
+    ["consumivel","consumable","po","pocao","elixir"].includes((i.type||"").toLowerCase()) ||
+    /consum/i.test(i.system?.categoria || "")
+  );
+  const outros = items.filter(i => ![...armas, ...armaduras, ...consumiveis].includes(i));
+
+  const section = (titulo, arr, tipo) => `
+    <div class="t20-inv-section">
+      <div class="t20-inv-title">${titulo} (${arr.length})</div>
+      <div class="t20-inv-grid">
+        ${arr.map(it => {
+          const eq = it.system?.equipado === 1 || it.system?.equipado === true;
+          const qtd = it.system?.quantidade ?? it.system?.qtd ?? it.system?.quantity ?? 1;
+          return `
+            <div class="t20-inv-item"
+                 data-id="${it.id}"
+                 data-type="${tipo}"
+                 data-name="${(it.name||'').toLowerCase()}">
+              <img class="t20-inv-icon" src="${it.img}" alt="${it.name}">
+              <div class="t20-inv-info">
+                <div class="t20-inv-name"><strong>${it.name}</strong></div>
+                <div class="t20-inv-meta">
+                  ${typeof qtd !== "undefined" ? `Qtd: <b>${qtd}</b>` : ""}
+                  ${tipo !== "cons" ? ` ${eq ? ' | <span class="t20-inv-eq">Equipado</span>' : ''}` : ""}
+                </div>
+                <div class="t20-inv-actions">
+                  ${tipo !== "cons" ? `<button class="t20-inv-equip">${eq ? "Des-equipar" : "Equipar"}</button>` : ""}
+                  ${tipo === "cons" ? `<button class="t20-inv-use">Usar</button>` : ""}
+                  <button class="t20-inv-roll">Abrir</button>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    </div>
+  `;
+
+  const content = `
+    <style>
+      .t20-inv-section{margin-bottom:10px}
+      .t20-inv-title{font-weight:bold;margin-bottom:6px}
+      .t20-inv-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;max-height:500px;overflow-y:auto}
+      .t20-inv-item{display:flex;gap:8px;padding:6px;border:1px solid #666;border-radius:6px;background:#1e1e1e;color:#fff;align-items:center}
+      .t20-inv-icon{width:36px;height:36px;object-fit:cover;border-radius:4px;border:1px solid #aaa}
+      .t20-inv-info{display:flex;flex-direction:column;gap:4px}
+      .t20-inv-actions{display:flex;gap:6px;flex-wrap:wrap}
+      .t20-inv-actions button{background:#1e1e1e;border:1px solid #555;border-radius:6px;color:#fff;cursor:pointer;padding:4px 6px}
+      .t20-inv-actions button:hover{background:#333}
+      .t20-inv-eq{color:gold}
+      .t20-inv-filter{display:flex;gap:8px;margin-bottom:8px}
+    </style>
+
+    <div class="t20-inv-filter">
+      <input type="text" id="t20-search" placeholder="Buscar item…">
+    </div>
+
+    ${section("Armas", armas, "arma")}
+    ${section("Armaduras/Escudos", armaduras, "arm")}
+    ${section("Consumíveis", consumiveis, "cons")}
+    ${section("Outros", outros, "out")}
+  `;
+
+  const d = new Dialog({
+    title: "Inventário",
+    content,
+    buttons: { fechar: { label: "Fechar" } },
+    render: (html) => {
+      const root = html[0];
+      const search = root.querySelector("#t20-search");
+
+      const applySearch = () => {
+        const term = (search.value || "").toLowerCase();
+        root.querySelectorAll(".t20-inv-item").forEach(el => {
+          el.style.display = el.dataset.name.includes(term) ? "" : "none";
+        });
+      };
+      search.addEventListener("input", applySearch);
+
+      // ações
+      root.querySelectorAll(".t20-inv-equip").forEach(btn => {
+        btn.addEventListener("click", async (e) => {
+          const card = e.currentTarget.closest(".t20-inv-item");
+          const item = actor.items.get(card.dataset.id);
+          const equipped = item.system?.equipado === 1 || item.system?.equipado === true;
+          const newVal = equipped ? 0 : 1;
+          await item.update({ "system.equipado": newVal });
+          ui.notifications.info(`${equipped ? "Des-equipado" : "Equipado"}: ${item.name}`);
+          renderHUD(actor);
+          openInventoryDialog(actor); // reabrir atualizado
+        });
+      });
+
+      root.querySelectorAll(".t20-inv-use").forEach(btn => {
+        btn.addEventListener("click", async (e) => {
+          const card = e.currentTarget.closest(".t20-inv-item");
+          const item = actor.items.get(card.dataset.id);
+          const paths = ["system.quantidade", "system.qtd", "system.quantity"];
+          let qtyPath = null, qtyVal = null;
+          for (const p of paths) {
+            const v = foundry.utils.getProperty(item, p);
+            if (typeof v !== "undefined") { qtyPath = p; qtyVal = Number(v)||0; break; }
+          }
+          if (qtyPath) {
+            if (qtyVal <= 0) return ui.notifications.warn(`Sem unidades de: ${item.name}`);
+            await item.update({ [qtyPath]: Math.max(0, qtyVal - 1) });
+          }
+          // tentar rolar a ficha do item
+          const event = new MouseEvent("click", { shiftKey: true });
+          item?.roll?.({ event });
+          ChatMessage.create({ speaker: ChatMessage.getSpeaker({actor}), content: `<b>Usou:</b> ${item.name}` });
+          openInventoryDialog(actor);
+        });
+      });
+
+      root.querySelectorAll(".t20-inv-roll").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+          const card = e.currentTarget.closest(".t20-inv-item");
+          const item = actor.items.get(card.dataset.id);
+          const event = new MouseEvent("click", { shiftKey: true });
+          item?.roll?.({ event });
+        });
+      });
+    }
+  });
+  d.render(true);
+}
+
+/* ------------ Drag util ------------ */
 function makeDraggable(hudEl) {
   const inner = hudEl.querySelector(".t20-quickbar-inner");
   if (!inner) return;
-
-  let dragging = false;
-  let startX = 0, startY = 0;
-  let startLeft = 0, startBottom = 0;
+  let dragging = false, startX = 0, startY = 0, startLeft = 0, startBottom = 0;
 
   const onMouseDown = (e) => {
     if (e.target.closest(".t20-button") || e.target.closest(".t20-collapse") || e.target.closest(".t20-fav")) return;
-    dragging = true;
-    hudEl.classList.add("dragging");
-    startX = e.clientX;
-    startY = e.clientY;
-
-    // calcular posição atual
+    dragging = true; hudEl.classList.add("dragging");
+    startX = e.clientX; startY = e.clientY;
     const rect = hudEl.getBoundingClientRect();
-    const left = rect.left;
-    const bottom = window.innerHeight - rect.bottom;
-
-    startLeft = left;
-    startBottom = bottom;
-
+    startLeft = rect.left; startBottom = window.innerHeight - rect.bottom;
     document.addEventListener("mousemove", onMouseMove);
     document.addEventListener("mouseup", onMouseUp);
   };
-
   const onMouseMove = (e) => {
     if (!dragging) return;
-    const dx = e.clientX - startX;
-    const dy = e.clientY - startY;
-
+    const dx = e.clientX - startX; const dy = e.clientY - startY;
     const newLeft = Math.max(0, Math.min(window.innerWidth - hudEl.offsetWidth, startLeft + dx));
     const newBottom = Math.max(0, Math.min(window.innerHeight - hudEl.offsetHeight, startBottom - dy));
-
-    hudEl.style.left = `${newLeft}px`;
-    hudEl.style.bottom = `${newBottom}px`;
-    hudEl.style.transform = "translateX(0)";
+    hudEl.style.left = `${newLeft}px`; hudEl.style.bottom = `${newBottom}px`; hudEl.style.transform = "translateX(0)";
   };
-
   const onMouseUp = () => {
     if (!dragging) return;
-    dragging = false;
-    hudEl.classList.remove("dragging");
-
-    // salvar posição
+    dragging = false; hudEl.classList.remove("dragging");
     const left = parseInt(hudEl.style.left || "0", 10);
     const bottom = parseInt(hudEl.style.bottom || "10", 10);
     game.settings.set("hud-combate-t20", "posicaoHUD", { left, bottom });
-
     document.removeEventListener("mousemove", onMouseMove);
     document.removeEventListener("mouseup", onMouseUp);
   };
-
   inner.addEventListener("mousedown", onMouseDown);
 }
 
+/* ------------ Ready: render + hotkeys ------------ */
 Hooks.once("ready", async () => {
   if (!game.settings.get("hud-combate-t20", "exibirBarra")) return;
 
@@ -588,18 +765,39 @@ Hooks.once("ready", async () => {
     if (controlled) await renderHUD(token.actor);
   });
 
-  Hooks.on("updateActor", async (actorUpdated, data, options, userId) => {
+  Hooks.on("updateActor", async (actorUpdated) => {
     const current = canvas.tokens.controlled[0];
-    if (current?.actor?.id === actorUpdated.id) {
-      await renderHUD(actorUpdated);
-    }
+    if (current?.actor?.id === actorUpdated.id) await renderHUD(actorUpdated);
   });
 
-  Hooks.on("updateItem", async (item, data, options, userId) => {
+  Hooks.on("updateItem", async (item) => {
     const controlled = canvas.tokens.controlled[0];
     if (!controlled) return;
-    if (item.parent?.id === controlled.actor.id && ["arma","poder","magia"].includes(item.type)) {
+    if (item.parent?.id === controlled.actor.id && ["arma","poder","magia","armadura","escudo"].includes(item.type)) {
       await renderHUD(controlled.actor);
     }
   });
+
+  // Teclas de atalho: A (ataque), P (poderes), M (magias), R (peRícias), I (inventário)
+  document.addEventListener("keydown", (e) => {
+    const tag = (document.activeElement?.tagName || "").toLowerCase();
+    if (tag === "input" || tag === "textarea" || document.activeElement?.isContentEditable) return;
+    const actor = canvas.tokens.controlled[0]?.actor;
+    if (!actor) return;
+
+    const key = e.key?.toLowerCase();
+    if (key === "a") return void clickTab("ataque", actor);
+    if (key === "p") return void clickTab("poderes", actor);
+    if (key === "m") return void clickTab("magias", actor);
+    if (key === "r") return void clickTab("pericias", actor);
+    if (key === "i") return void clickTab("inventario", actor);
+  });
 });
+
+function clickTab(tab, actor) {
+  if (tab === "ataque") return document.querySelector('.t20-button[data-tab="ataque"]')?.click();
+  if (tab === "poderes") return openPowersDialog(actor);
+  if (tab === "magias") return openSpellsDialog(actor);
+  if (tab === "pericias") return openSkillsDialog(actor);
+  if (tab === "inventario") return openInventoryDialog(actor);
+}

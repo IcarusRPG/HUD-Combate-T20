@@ -127,3 +127,39 @@
   background: gold; color: #000; font-weight: bold; font-size: 0.7rem;
   border-radius: 4px; padding: 0 4px;
 }
+
+/* Barra de filtros genérica usada nos diálogos */
+.t20-filterbar {
+  display: flex; gap: 8px; margin-bottom: 8px; align-items: center;
+}
+.t20-filterbar input, .t20-filterbar select {
+  background: #1e1e1e; color: #fff; border: 1px solid #555; border-radius: 6px;
+  padding: 4px 8px; height: 28px;
+}
+
+/* Inventário */
+.t20-inv-section{margin-bottom:10px}
+.t20-inv-title{font-weight:bold;margin-bottom:6px}
+.t20-inv-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;max-height:500px;overflow-y:auto}
+.t20-inv-item{display:flex;gap:8px;padding:6px;border:1px solid #666;border-radius:6px;background:#1e1e1e;color:#fff;align-items:center}
+.t20-inv-icon{width:36px;height:36px;object-fit:cover;border-radius:4px;border:1px solid #aaa}
+.t20-inv-info{display:flex;flex-direction:column;gap:4px}
+.t20-inv-actions{display:flex;gap:6px;flex-wrap:wrap}
+.t20-inv-actions button{background:#1e1e1e;border:1px solid #555;border-radius:6px;color:#fff;cursor:pointer;padding:4px 6px}
+.t20-inv-actions button:hover{background:#333}
+.t20-inv-eq{color:gold}
+
+/* Skills */
+.t20-skills-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;max-height:500px;overflow-y:auto}
+.t20-skill-item{display:flex;flex-direction:column;gap:4px;padding:6px;border:1px solid #666;border-radius:6px;background:#1e1e1e;color:#fff}
+.t20-skill-item button{background:#1e1e1e;border:1px solid #555;border-radius:6px;color:#fff;cursor:pointer;padding:4px 6px}
+.t20-skill-item button:hover{background:#333}
+.t20-skill-name{font-size:.95rem}
+.t20-skill-meta{font-size:.8rem;opacity:.9}
+
+/* Favoritos (caso ainda não tenha) */
+.t20-fav-badge {
+  position: absolute; top: 4px; right: 4px;
+  background: gold; color: #000; font-weight: bold; font-size: 0.7rem;
+  border-radius: 4px; padding: 0 4px;
+}
