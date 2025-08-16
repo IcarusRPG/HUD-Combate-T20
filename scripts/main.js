@@ -635,11 +635,11 @@ async function openSkillsDialog(actor) {
   d.render(true);
 }
 
-/* --------- Consumíveis apenas: busca + usar + abrir -------- */
+/* --------- Consumíveis: só "Usar" (mensagem → qty-- → usar) --------- */
 async function openInventoryDialog(actor) {
   const items = actor.items || [];
 
-  // Somente consumíveis (tipos comuns + heurística por categoria do sistema)
+  // Apenas consumíveis (tipos comuns + heurística por categoria do sistema)
   const consumiveis = items.filter(i =>
     ["consumivel","consumable","po","pocao","elixir"].includes((i.type||"").toLowerCase()) ||
     /consum/i.test(i.system?.categoria || "")
@@ -650,6 +650,7 @@ async function openInventoryDialog(actor) {
     return;
   }
 
+  // Lista com APENAS o botão "Usar"
   const listHtml = consumiveis.map(it => {
     const qtd = it.system?.quantidade ?? it.system?.qtd ?? it.system?.quantity ?? 1;
     return `
@@ -662,7 +663,6 @@ async function openInventoryDialog(actor) {
           <div class="t20-inv-meta">Qtd: <b>${qtd}</b></div>
           <div class="t20-inv-actions">
             <button class="t20-inv-use">Usar</button>
-            <button class="t20-inv-roll">Abrir</button>
           </div>
         </div>
       </div>
@@ -712,40 +712,54 @@ async function openInventoryDialog(actor) {
       };
       search.addEventListener("input", applySearch);
 
-      // Usar consumível (decrementa quantidade e rola a carta)
+      // USAR: mensagem -> decrementa quantidade -> aciona item sem abrir ficha/dialog
       root.querySelectorAll(".t20-inv-use").forEach(btn => {
         btn.addEventListener("click", async (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+
           const card = e.currentTarget.closest(".t20-inv-item");
           const item = actor.items.get(card.dataset.id);
+          if (!item) return;
 
+          // 1) Mensagem
+          await ChatMessage.create({
+            speaker: ChatMessage.getSpeaker({ actor }),
+            content: `<b>Usou:</b> ${item.name}`
+          });
+
+          // 2) Decrementa quantidade (suporta vários schemas)
           const paths = ["system.quantidade", "system.qtd", "system.quantity"];
           let qtyPath = null, qtyVal = null;
           for (const p of paths) {
             const v = foundry.utils.getProperty(item, p);
             if (typeof v !== "undefined") { qtyPath = p; qtyVal = Number(v)||0; break; }
           }
-
           if (qtyPath) {
-            if (qtyVal <= 0) return ui.notifications.warn(`Sem unidades de: ${item.name}`);
+            if (qtyVal <= 0) {
+              ui.notifications.warn(`Sem unidades de: ${item.name}`);
+              return;
+            }
             await item.update({ [qtyPath]: Math.max(0, qtyVal - 1) });
           }
 
-          const event = new MouseEvent("click", { shiftKey: true });
-          item?.roll?.({ event });
-          ChatMessage.create({ speaker: ChatMessage.getSpeaker({actor}), content: `<b>Usou:</b> ${item.name}` });
+          // 3) Usar automaticamente (sem abrir janelas)
+          try {
+            if (typeof item.use === "function") {
+              await item.use({ configureDialog: false, fastForward: true, skipDialog: true, createMessage: true });
+            } else if (typeof item.roll === "function") {
+              await item.roll({ configureDialog: false, fastForward: true, skipDialog: true, createMessage: true });
+            } else if (typeof item.activate === "function") {
+              await item.activate();
+            }
+          } catch (err) {
+            console.error(err);
+            ui.notifications.warn("Item usado, mas não foi possível executar efeitos automáticos.");
+          }
 
-          // Reabrir atualizado
+          // Atualiza a UI: fecha e reabre o diálogo para refletir a nova quantidade
+          d.close();
           openInventoryDialog(actor);
-        });
-      });
-
-      // Abrir carta do item (sem consumir)
-      root.querySelectorAll(".t20-inv-roll").forEach(btn => {
-        btn.addEventListener("click", (e) => {
-          const card = e.currentTarget.closest(".t20-inv-item");
-          const item = actor.items.get(card.dataset.id);
-          const event = new MouseEvent("click", { shiftKey: true });
-          item?.roll?.({ event });
         });
       });
     }
