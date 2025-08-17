@@ -1,11 +1,11 @@
 /* ============================================================
- * HUD Combate T20 — main.js (v0.7.x)
+ * HUD Combate T20 — main.js (completo)
  * - Favoritos (HUD)
  * - Busca/ordem/filtros em Poderes & Magias
- * - Perícias com "value"
- * - Consumíveis apenas no Inventário
- * - Hotkeys (A/P/M/R/I/H/?) e botão de Ajuda "?"
- * - HUD arrastável e recolhível, posição persistente (cliente)
+ * - Perícias usando "value"
+ * - Consumíveis 1-clique (sem duplo consumo)
+ * - Hotkeys (A/P/M/R/I/H/?), botão de Ajuda "?" e Fechar "✕"
+ * - HUD arrastável e recolhível, com posição/estado persistentes
  * ============================================================ */
 
 Hooks.once("init", () => {
@@ -18,7 +18,7 @@ Hooks.once("init", () => {
     default: true
   });
 
-  // Posição e estado (cliente)
+  // Posição e estados (cliente)
   game.settings.register("hud-combate-t20", "posicaoHUD", {
     name: "Posição da HUD",
     scope: "client",
@@ -29,6 +29,15 @@ Hooks.once("init", () => {
 
   game.settings.register("hud-combate-t20", "hudColapsada", {
     name: "HUD recolhida",
+    scope: "client",
+    config: false,
+    type: Boolean,
+    default: false
+  });
+
+  // HUD fechada (mostra apenas o botão "HUD" para reabrir)
+  game.settings.register("hud-combate-t20", "hudFechada", {
+    name: "HUD fechada",
     scope: "client",
     config: false,
     type: Boolean,
@@ -100,10 +109,39 @@ function showHotkeysDialog() {
   }).render(true);
 }
 
+/* --------------- Toggle quando HUD está fechada ------------ */
+function renderHUDToggle() {
+  document.querySelector(".t20-quickbar")?.remove();
+  document.querySelector(".t20-hud-toggle")?.remove();
+
+  const container = document.createElement("div");
+  container.className = "t20-hud-toggle";
+  container.setAttribute("style", getHUDPosStyle());
+  container.innerHTML = `<button class="t20-open" title="Abrir HUD">HUD</button>`;
+  document.body.appendChild(container);
+
+  container.querySelector(".t20-open")?.addEventListener("click", async () => {
+    await game.settings.set("hud-combate-t20", "hudFechada", false);
+    const actor = canvas.tokens.controlled[0]?.actor || null;
+    renderHUD(actor);
+  });
+}
+
 /* ------------------------ Render HUD ----------------------- */
 async function renderHUD(actor) {
-  const existing = document.querySelector(".t20-quickbar");
-  if (existing) existing.remove();
+  // limpa UI anterior
+  document.querySelector(".t20-quickbar")?.remove();
+  document.querySelector(".t20-hud-toggle")?.remove();
+
+  // Se a HUD estiver desativada nas configs, não renderiza nada
+  if (!game.settings.get("hud-combate-t20", "exibirBarra")) return;
+
+  // Se estiver fechada, mostra apenas o botão de abrir
+  if (game.settings.get("hud-combate-t20", "hudFechada")) {
+    renderHUDToggle();
+    return;
+  }
+
   if (!actor) return;
 
   const armaEquipada = actor.items.find(i =>
@@ -150,7 +188,7 @@ async function renderHUD(actor) {
     });
   });
 
-  // Collapse
+  // Collapse ▾
   hudEl.querySelector(".t20-collapse")?.addEventListener("click", () => {
     const current = game.settings.get("hud-combate-t20", "hudColapsada");
     game.settings.set("hud-combate-t20", "hudColapsada", !current);
@@ -160,6 +198,12 @@ async function renderHUD(actor) {
   // Ajuda "?"
   hudEl.querySelector(".t20-help")?.addEventListener("click", () => {
     showHotkeysDialog();
+  });
+
+  // Fechar HUD ✕
+  hudEl.querySelector(".t20-close")?.addEventListener("click", async () => {
+    await game.settings.set("hud-combate-t20", "hudFechada", true);
+    renderHUDToggle();
   });
 
   // Drag
@@ -709,7 +753,7 @@ async function openInventoryDialog(actor) {
       };
       search.addEventListener("input", applySearch);
 
-      // USAR: mensagem -> usa item -> se não consumiu, decrementa 1
+      // USAR: mensagem -> usar item -> se não consumiu, decrementa 1
       root.querySelectorAll(".t20-inv-use").forEach(btn => {
         btn.addEventListener("click", async (e) => {
           e.preventDefault();
@@ -720,7 +764,7 @@ async function openInventoryDialog(actor) {
           let item = actor.items.get(itemId);
           if (!item) return;
 
-          // Caminho da quantidade (detecta uma vez)
+          // Descobrir caminho de quantidade
           const qtyPaths = ["system.quantidade", "system.qtd", "system.quantity"];
           let qtyPath = null;
           for (const p of qtyPaths) {
@@ -728,7 +772,7 @@ async function openInventoryDialog(actor) {
           }
           const getQty = (doc) => {
             const v = qtyPath ? foundry.utils.getProperty(doc, qtyPath) : undefined;
-            return (typeof v === "number") ? v : Number(v);
+            return Number(v);
           };
 
           const beforeQty = getQty(item);
@@ -757,21 +801,22 @@ async function openInventoryDialog(actor) {
             ui.notifications.warn("Não foi possível executar os efeitos automáticos do item (mas a mensagem foi enviada).");
           }
 
-          // 3) Verifica se o sistema já consumiu; se não, decrementa 1 como fallback
-          //    Recarrega a referência (o sistema pode ter atualizado o item)
+          // 3) Verifica se o sistema já consumiu; se não, decrementa 1 (fallback)
           item = actor.items.get(itemId) || item;
           const afterQty = getQty(item);
 
-          if (Number.isFinite(beforeQty) && Number.isFinite(afterQty)) {
-            if (afterQty === beforeQty && qtyPath) {
+          if (Number.isFinite(beforeQty)) {
+            if (Number.isFinite(afterQty)) {
+              if (afterQty === beforeQty && qtyPath) {
+                await item.update({ [qtyPath]: Math.max(0, beforeQty - 1) });
+              }
+            } else if (qtyPath) {
+              // Sistema não retornou número; ainda assim tentamos consumir 1
               await item.update({ [qtyPath]: Math.max(0, beforeQty - 1) });
             }
-          } else if (qtyPath && Number.isFinite(beforeQty)) {
-            // Se o sistema não tem quantidade numérica, ainda assim tentamos consumir 1
-            await item.update({ [qtyPath]: Math.max(0, beforeQty - 1) });
           }
 
-          // Reabrir atualizado
+          // Atualiza UI
           d.close();
           openInventoryDialog(actor);
         });
@@ -782,7 +827,6 @@ async function openInventoryDialog(actor) {
   d.render(true);
 }
 
-
 /* --------------------- Drag util --------------------- */
 function makeDraggable(hudEl) {
   const inner = hudEl.querySelector(".t20-quickbar-inner");
@@ -790,7 +834,14 @@ function makeDraggable(hudEl) {
   let dragging = false, startX = 0, startY = 0, startLeft = 0, startBottom = 0;
 
   const onMouseDown = (e) => {
-    if (e.target.closest(".t20-button") || e.target.closest(".t20-collapse") || e.target.closest(".t20-help") || e.target.closest(".t20-fav")) return;
+    if (
+      e.target.closest(".t20-button") ||
+      e.target.closest(".t20-collapse") ||
+      e.target.closest(".t20-help") ||
+      e.target.closest(".t20-close") ||
+      e.target.closest(".t20-fav")
+    ) return;
+
     dragging = true; hudEl.classList.add("dragging");
     startX = e.clientX; startY = e.clientY;
     const rect = hudEl.getBoundingClientRect();
@@ -827,6 +878,11 @@ Hooks.once("ready", async () => {
 
   Hooks.on("controlToken", async (token, controlled) => {
     if (controlled) await renderHUD(token.actor);
+    else {
+      // Se nenhum token estiver selecionado, ainda mantenha o toggle se a HUD estiver fechada
+      if (game.settings.get("hud-combate-t20", "hudFechada")) renderHUDToggle();
+      else document.querySelector(".t20-quickbar")?.remove();
+    }
   });
 
   Hooks.on("updateActor", async (actorUpdated) => {
@@ -848,17 +904,17 @@ Hooks.once("ready", async () => {
     if (tag === "input" || tag === "textarea" || document.activeElement?.isContentEditable) return;
 
     const actor = canvas.tokens.controlled[0]?.actor;
-    if (!actor) return;
-
+    // Mesmo sem actor, permitimos abrir a ajuda
     const key = e.key?.toLowerCase();
+
+    if (key === "h" || key === "?") return showHotkeysDialog();
+    if (!actor) return;
 
     if (key === "a") return void clickTab("ataque", actor);
     if (key === "p") return void clickTab("poderes", actor);
     if (key === "m") return void clickTab("magias", actor);
     if (key === "r") return void clickTab("pericias", actor);
     if (key === "i") return void clickTab("inventario", actor);
-
-    if (key === "h" || key === "?") return showHotkeysDialog();
   });
 });
 

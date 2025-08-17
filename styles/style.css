@@ -182,3 +182,23 @@
 
 /* Opcional: afastar os botões de ação dos botões utilitários (help/collapse) */
 .t20-toprow { gap: 8px; }
+
+/* Botões utilitários (help/close/collapse) */
+.t20-help, .t20-close, .t20-collapse {
+  width: 28px; height: 28px; border-radius: 6px; border: 1px solid #555;
+  background: #1e1e1e; color: #fff; cursor: pointer;
+}
+.t20-help:hover, .t20-close:hover, .t20-collapse:hover { background: #444; }
+
+/* Botão flutuante quando a HUD está fechada */
+.t20-hud-toggle {
+  position: fixed;
+  left: 50%; transform: translateX(-50%);
+  bottom: 10px; z-index: 70;
+}
+.t20-hud-toggle .t20-open {
+  min-width: 52px; height: 32px; padding: 0 10px;
+  border-radius: 8px; border: 1px solid #555;
+  background: #1e1e1e; color: #fff; cursor: pointer;
+}
+.t20-hud-toggle .t20-open:hover { background: #444; }
