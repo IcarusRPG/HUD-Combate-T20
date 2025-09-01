@@ -54,6 +54,118 @@ Hooks.once("init", () => {
   });
 });
 
+  game.settings.register("hud-combate-t20", "mostrarBoasVindas", {
+    name: "Mostrar mensagem de boas-vindas",
+    scope: "client",
+    config: false,
+    type: Boolean,
+    default: true
+  });
+});
+
+// (Opcional) ajuste o caminho das imagens do seu módulo aqui:
+const ICARUS_IMG_BASE = "modules/hud-combate-t20/img";
+const ICARUS_LOGO = `${ICARUS_IMG_BASE}/logo.png`;
+const ICARUS_EM_BREVE = `${ICARUS_IMG_BASE}/embreve.png`;
+
+// Cria e exibe o diálogo de boas-vindas
+function showIcarusWelcomeDialog() {
+  const content = `
+  <style>
+    .icarus-welcome { font-family: Segoe UI, sans-serif; color: #fff; }
+    .icarus-card {
+      background:#1e1e1e; border:1px solid #555; border-radius:12px; padding:14px;
+      box-shadow: 0 0 10px #000a;
+    }
+    .icarus-title { display:flex; flex-direction:column; align-items:center; gap:8px; text-align:center; }
+    .icarus-title img { max-width: 70%; height:auto; }
+    .icarus-sub { opacity:.9; font-size:.95rem; }
+    .icarus-grid { display:grid; grid-template-columns: 1fr; gap:12px; margin-top:10px; }
+    .icarus-box { background:#151515; border:1px solid #444; border-radius:10px; padding:10px; }
+    .icarus-box h3 { margin:0 0 6px 0; font-size:1rem; color:#8be9fd; }
+    .icarus-list { margin:0; padding-left:18px; line-height:1.45; }
+    .icarus-center { text-align:center; }
+    .icarus-link a { color:#7ee787; text-decoration:none; word-break:break-all; }
+    .icarus-link a:hover { text-decoration:underline; }
+    .icarus-cta { margin-top:6px; opacity:.95; }
+    .icarus-img-embreve { max-width: 80%; height:auto; border-radius:10px; border:1px solid #444; }
+    .icarus-bottom { display:flex; align-items:center; justify-content:center; gap:8px; margin-top:10px; }
+    .icarus-checkbox { display:flex; align-items:center; gap:6px; }
+  </style>
+
+  <div class="icarus-welcome">
+    <div class="icarus-card">
+      <div class="icarus-title">
+        <img src="${ICARUS_LOGO}" alt="Icarus — Logo">
+        <div class="icarus-sub">Bem-vindo ao <b>HUD de Combate T20</b> — módulo oficial do projeto <b>Icarus</b>.</div>
+      </div>
+
+      <div class="icarus-grid">
+        <div class="icarus-box">
+          <h3>O que é Icarus?</h3>
+          <ul class="icarus-list">
+            <li><b>RPG:</b> um cenário original com classes, aventuras, divindades e uma campanha própria — tudo sendo lançado no <i>Livro do Jogador</i>.</li>
+            <li><b>Música:</b> banda de Power/Prog Metal cujas letras e artes nascem das histórias do mundo de Icarus.</li>
+          </ul>
+          <div class="icarus-center icarus-cta">
+            <img class="icarus-img-embreve" src="${ICARUS_EM_BREVE}" alt="Icarus — Livro do Jogador (em breve)">
+          </div>
+        </div>
+
+        <div class="icarus-box">
+          <h3>O que este módulo faz?</h3>
+          <ul class="icarus-list">
+            <li><b>HUD flutuante</b> do ator selecionado com avatar, PV/PM/DEF, arrastável e com posição/estado salvos.</li>
+            <li><b>Botões rápidos:</b> Ataque, Perícias, Poderes, Magias e Consumíveis (uso 1-clique, sem consumo duplo).</li>
+            <li><b>Favoritos</b> (★) para poderes/magias direto na HUD.</li>
+            <li><b>Busca, filtros e ordenação</b> em Poderes/Magias/Perícias.</li>
+            <li><b>Atalhos</b> de teclado: A/P/M/R/I e <b>H</b> (Ajuda).</li>
+            <li><b>Recolher/Expandir</b> e <b>Fechar</b> com botão flutuante para reabrir.</li>
+          </ul>
+        </div>
+
+        <div class="icarus-box icarus-center">
+          <h3>Ajude e siga o Icarus</h3>
+          <div class="icarus-link">
+            🔗 <a href="https://linktr.ee/icarusrpg" target="_blank" rel="noopener">linktr.ee/icarusrpg</a>
+          </div>
+          <div class="icarus-cta">Siga nas redes, compartilhe e apoie para que mais conteúdos (livros, músicas e módulos) continuem chegando!</div>
+        </div>
+      </div>
+
+      <div class="icarus-bottom">
+        <label class="icarus-checkbox">
+          <input type="checkbox" id="icarusDontShowAgain"> Não mostrar novamente
+        </label>
+      </div>
+    </div>
+  </div>
+  `;
+
+  new Dialog({
+    title: "🌟 Projeto Icarus — Boas-vindas",
+    content,
+    buttons: {
+      ok: {
+        label: "Vamos jogar!",
+        callback: async (html) => {
+          const dontShow = html.find("#icarusDontShowAgain")[0]?.checked;
+          if (dontShow) {
+            await game.settings.set("hud-combate-t20", "mostrarBoasVindas", false);
+          }
+        }
+      }
+    },
+    default: "ok"
+  }).render(true);
+}
+
+Hooks.once("ready", () => {
+  if (game.settings.get("hud-combate-t20", "mostrarBoasVindas")) {
+    showIcarusWelcomeDialog();
+  }
+});	
+
 /* ---------------- Helpers favoritos/posição ---------------- */
 function getFavsFor(actorId) {
   const all = game.settings.get("hud-combate-t20", "favoritos") || {};
