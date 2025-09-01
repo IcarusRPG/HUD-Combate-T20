@@ -1,5 +1,6 @@
 /* ============================================================
- * HUD Combate T20 — main.js (completo)
+ * HUD Combate T20 — main.js (COMPLETO)
+ * - Mensagem de Boas-Vindas (Icarus RPG + Música) com "não mostrar novamente"
  * - Favoritos (HUD)
  * - Busca/ordem/filtros em Poderes & Magias
  * - Perícias usando "value"
@@ -8,7 +9,10 @@
  * - HUD arrastável e recolhível, com posição/estado persistentes
  * ============================================================ */
 
+/* ===================== Settings & Constantes ===================== */
+
 Hooks.once("init", () => {
+  // Exibir/ocultar a barra
   game.settings.register("hud-combate-t20", "exibirBarra", {
     name: "Ativar HUD de Combate T20",
     hint: "Exibe ou oculta a barra de ações rápidas flutuante na tela.",
@@ -18,7 +22,7 @@ Hooks.once("init", () => {
     default: true
   });
 
-  // Posição e estados (cliente)
+  // Posição da HUD (cliente)
   game.settings.register("hud-combate-t20", "posicaoHUD", {
     name: "Posição da HUD",
     scope: "client",
@@ -27,6 +31,7 @@ Hooks.once("init", () => {
     default: { left: null, bottom: 10 }
   });
 
+  // Estado recolhida/expandida
   game.settings.register("hud-combate-t20", "hudColapsada", {
     name: "HUD recolhida",
     scope: "client",
@@ -35,7 +40,7 @@ Hooks.once("init", () => {
     default: false
   });
 
-  // HUD fechada (mostra apenas o botão "HUD" para reabrir)
+  // HUD fechada (apenas botão flutuante para abrir)
   game.settings.register("hud-combate-t20", "hudFechada", {
     name: "HUD fechada",
     scope: "client",
@@ -52,8 +57,8 @@ Hooks.once("init", () => {
     type: Object,
     default: {} // { [actorId]: [ {type:'poder'|'magia', id, name, img} ] }
   });
-});
 
+  // Boas-vindas (mostrar uma vez por cliente)
   game.settings.register("hud-combate-t20", "mostrarBoasVindas", {
     name: "Mostrar mensagem de boas-vindas",
     scope: "client",
@@ -63,12 +68,89 @@ Hooks.once("init", () => {
   });
 });
 
-// (Opcional) ajuste o caminho das imagens do seu módulo aqui:
+// Ajuste o caminho se necessário
 const ICARUS_IMG_BASE = "modules/hud-combate-t20/img";
-const ICARUS_LOGO = `${ICARUS_IMG_BASE}/logo.png`;
+const ICARUS_LOGO     = `${ICARUS_IMG_BASE}/logo.png`;
 const ICARUS_EM_BREVE = `${ICARUS_IMG_BASE}/embreve.png`;
 
-// Cria e exibe o diálogo de boas-vindas
+/* ======================= Helpers (favoritos/UI) ======================= */
+
+function getFavsFor(actorId) {
+  const all = game.settings.get("hud-combate-t20", "favoritos") || {};
+  return Array.isArray(all[actorId]) ? all[actorId] : [];
+}
+function setFavsFor(actorId, list) {
+  const all = foundry.utils.duplicate(game.settings.get("hud-combate-t20", "favoritos") || {});
+  all[actorId] = list;
+  game.settings.set("hud-combate-t20", "favoritos", all);
+}
+function toggleFav(actor, type, item) {
+  const list = getFavsFor(actor.id);
+  const idx = list.findIndex(f => f.type === type && f.id === item.id);
+  if (idx >= 0) list.splice(idx, 1);
+  else list.push({ type, id: item.id, name: item.name, img: item.img });
+  setFavsFor(actor.id, list);
+}
+function getHUDPosStyle() {
+  const pos = game.settings.get("hud-combate-t20", "posicaoHUD") || { left: null, bottom: 10 };
+  const parts = [];
+  if (pos.left !== null) parts.push(`left:${pos.left}px;transform:translateX(0);`);
+  else parts.push(`left:50%;transform:translateX(-50%);`);
+  parts.push(`bottom:${pos.bottom ?? 10}px;`);
+  return parts.join("");
+}
+
+/* ======================== Ajuda (Hotkeys) ======================== */
+
+function showHotkeysDialog() {
+  const content = `
+    <style>
+      .t20-help-list { line-height: 1.6; }
+      .t20-help-list kbd {
+        background: #222; color: #fff; border: 1px solid #555; border-radius: 4px;
+        padding: 0 6px; font-family: monospace; font-size: 0.9rem;
+      }
+      .t20-help-note { opacity: .85; font-size: .9rem; margin-top: 6px; }
+    </style>
+    <div class="t20-help-list">
+      <div><kbd>A</kbd> — Ataque</div>
+      <div><kbd>P</kbd> — Poderes</div>
+      <div><kbd>M</kbd> — Magias</div>
+      <div><kbd>R</kbd> — Perícias</div>
+      <div><kbd>I</kbd> — Consumíveis</div>
+      <hr>
+      <div><kbd>H</kbd> ou <kbd>?</kbd> — Esta ajuda</div>
+      <div class="t20-help-note">Atalhos são ignorados quando um campo de texto está em foco.</div>
+    </div>
+  `;
+  new Dialog({
+    title: "Atalhos de Teclado — HUD Combate T20",
+    content,
+    buttons: { ok: { label: "Fechar" } }
+  }).render(true);
+}
+
+/* =================== Toggle quando HUD está fechada =================== */
+
+function renderHUDToggle() {
+  document.querySelector(".t20-quickbar")?.remove();
+  document.querySelector(".t20-hud-toggle")?.remove();
+
+  const container = document.createElement("div");
+  container.className = "t20-hud-toggle";
+  container.setAttribute("style", getHUDPosStyle());
+  container.innerHTML = `<button class="t20-open" title="Abrir HUD">HUD</button>`;
+  document.body.appendChild(container);
+
+  container.querySelector(".t20-open")?.addEventListener("click", async () => {
+    await game.settings.set("hud-combate-t20", "hudFechada", false);
+    const actor = canvas.tokens.controlled[0]?.actor || null;
+    renderHUD(actor);
+  });
+}
+
+/* ===================== Diálogo de Boas-Vindas ===================== */
+
 function showIcarusWelcomeDialog() {
   const content = `
   <style>
@@ -104,7 +186,7 @@ function showIcarusWelcomeDialog() {
         <div class="icarus-box">
           <h3>O que é Icarus?</h3>
           <ul class="icarus-list">
-            <li><b>RPG:</b> um cenário original com classes, aventuras, divindades e uma campanha própria — tudo sendo lançado no <i>Livro do Jogador</i>.</li>
+            <li><b>RPG:</b> cenário original com classes, aventuras, divindades e uma campanha própria — em breve no <i>Livro do Jogador</i>.</li>
             <li><b>Música:</b> banda de Power/Prog Metal cujas letras e artes nascem das histórias do mundo de Icarus.</li>
           </ul>
           <div class="icarus-center icarus-cta">
@@ -160,86 +242,8 @@ function showIcarusWelcomeDialog() {
   }).render(true);
 }
 
-Hooks.once("ready", () => {
-  if (game.settings.get("hud-combate-t20", "mostrarBoasVindas")) {
-    showIcarusWelcomeDialog();
-  }
-});	
+/* ========================= Render da HUD ========================= */
 
-/* ---------------- Helpers favoritos/posição ---------------- */
-function getFavsFor(actorId) {
-  const all = game.settings.get("hud-combate-t20", "favoritos") || {};
-  return Array.isArray(all[actorId]) ? all[actorId] : [];
-}
-function setFavsFor(actorId, list) {
-  const all = foundry.utils.duplicate(game.settings.get("hud-combate-t20", "favoritos") || {});
-  all[actorId] = list;
-  game.settings.set("hud-combate-t20", "favoritos", all);
-}
-function toggleFav(actor, type, item) {
-  const list = getFavsFor(actor.id);
-  const idx = list.findIndex(f => f.type === type && f.id === item.id);
-  if (idx >= 0) list.splice(idx, 1);
-  else list.push({ type, id: item.id, name: item.name, img: item.img });
-  setFavsFor(actor.id, list);
-}
-function getHUDPosStyle() {
-  const pos = game.settings.get("hud-combate-t20", "posicaoHUD") || { left: null, bottom: 10 };
-  const parts = [];
-  if (pos.left !== null) parts.push(`left:${pos.left}px;transform:translateX(0);`);
-  else parts.push(`left:50%;transform:translateX(-50%);`);
-  parts.push(`bottom:${pos.bottom ?? 10}px;`);
-  return parts.join("");
-}
-
-/* ---------------------- Ajuda (hotkeys) -------------------- */
-function showHotkeysDialog() {
-  const content = `
-    <style>
-      .t20-help-list { line-height: 1.6; }
-      .t20-help-list kbd {
-        background: #222; color: #fff; border: 1px solid #555; border-radius: 4px;
-        padding: 0 6px; font-family: monospace; font-size: 0.9rem;
-      }
-      .t20-help-note { opacity: .85; font-size: .9rem; margin-top: 6px; }
-    </style>
-    <div class="t20-help-list">
-      <div><kbd>A</kbd> — Ataque</div>
-      <div><kbd>P</kbd> — Poderes</div>
-      <div><kbd>M</kbd> — Magias</div>
-      <div><kbd>R</kbd> — Perícias</div>
-      <div><kbd>I</kbd> — Consumíveis</div>
-      <hr>
-      <div><kbd>H</kbd> ou <kbd>?</kbd> — Esta ajuda</div>
-      <div class="t20-help-note">Atalhos são ignorados quando um campo de texto está em foco.</div>
-    </div>
-  `;
-  new Dialog({
-    title: "Atalhos de Teclado — HUD Combate T20",
-    content,
-    buttons: { ok: { label: "Fechar" } }
-  }).render(true);
-}
-
-/* --------------- Toggle quando HUD está fechada ------------ */
-function renderHUDToggle() {
-  document.querySelector(".t20-quickbar")?.remove();
-  document.querySelector(".t20-hud-toggle")?.remove();
-
-  const container = document.createElement("div");
-  container.className = "t20-hud-toggle";
-  container.setAttribute("style", getHUDPosStyle());
-  container.innerHTML = `<button class="t20-open" title="Abrir HUD">HUD</button>`;
-  document.body.appendChild(container);
-
-  container.querySelector(".t20-open")?.addEventListener("click", async () => {
-    await game.settings.set("hud-combate-t20", "hudFechada", false);
-    const actor = canvas.tokens.controlled[0]?.actor || null;
-    renderHUD(actor);
-  });
-}
-
-/* ------------------------ Render HUD ----------------------- */
 async function renderHUD(actor) {
   // limpa UI anterior
   document.querySelector(".t20-quickbar")?.remove();
@@ -374,7 +378,8 @@ async function renderHUD(actor) {
   });
 }
 
-/* ------------- Poderes: busca/ordem/filtros/fav ------------- */
+/* ===================== Poderes (busca/filtros/fav) ===================== */
+
 async function openPowersDialog(selectedActor) {
   const poderes = selectedActor.items.filter(i => i.type === "poder");
   if (!poderes.length) return ui.notifications.warn("Nenhum poder encontrado.");
@@ -519,7 +524,8 @@ async function openPowersDialog(selectedActor) {
   d.render(true);
 }
 
-/* ------------- Magias: busca/ordem/filtros/nivel/fav ------------- */
+/* =================== Magias (busca/filtros/nivel/fav) =================== */
+
 async function openSpellsDialog(selectedActor) {
   const magias = selectedActor.items.filter(i => i.type === "magia");
   if (!magias.length) return ui.notifications.warn("Nenhuma magia encontrada.");
@@ -625,7 +631,7 @@ async function openSpellsDialog(selectedActor) {
           const okAlc  = !alc  || c.dataset.alcance.includes(alc);
           const okAlvo = !alvo || c.dataset.alvo.includes(alvo);
           const okArea = !area || c.dataset.area.includes(area);
-          c.style.display = (okName && okPM && okAlc && okAlvo && okArea) ? "" : "none";
+          c.style.display = (okName && okPM && okAlc && okAlvo) ? "" : "none";
         });
 
         const visible = cards.filter(c => c.style.display !== "none");
@@ -670,12 +676,13 @@ async function openSpellsDialog(selectedActor) {
   d.render(true);
 }
 
-/* ----------------- Perícias (usa "value") ------------------ */
+/* ======================= Perícias (usa "value") ======================= */
+
 async function openSkillsDialog(actor) {
   const pericias = actor.system?.pericias || actor.system?.skills || {};
   const entries = Object.entries(pericias).map(([key, val]) => {
     const nome = val?.rotulo || val?.label || key;
-    const value = Number(val?.value ?? val?.total ?? val?.mod ?? 0) || 0; // usa "value"
+    const value = Number(val?.value ?? val?.total ?? val?.mod ?? 0) || 0;
     const atr = (val?.atributo || val?.ability || "").toString();
     const treinada = !!(val?.treinado ?? val?.trained ?? false);
     return { key, nome, value, atr, treinada };
@@ -791,7 +798,8 @@ async function openSkillsDialog(actor) {
   d.render(true);
 }
 
-/* --------- Consumíveis: só "Usar" (sem duplo consumo) --------- */
+/* ========== Consumíveis: "Usar" (sem duplo consumo) ========== */
+
 async function openInventoryDialog(actor) {
   const items = actor.items || [];
 
@@ -923,7 +931,6 @@ async function openInventoryDialog(actor) {
                 await item.update({ [qtyPath]: Math.max(0, beforeQty - 1) });
               }
             } else if (qtyPath) {
-              // Sistema não retornou número; ainda assim tentamos consumir 1
               await item.update({ [qtyPath]: Math.max(0, beforeQty - 1) });
             }
           }
@@ -939,7 +946,8 @@ async function openInventoryDialog(actor) {
   d.render(true);
 }
 
-/* --------------------- Drag util --------------------- */
+/* ============================ Drag util ============================ */
+
 function makeDraggable(hudEl) {
   const inner = hudEl.querySelector(".t20-quickbar-inner");
   if (!inner) return;
@@ -980,8 +988,14 @@ function makeDraggable(hudEl) {
   inner.addEventListener("mousedown", onMouseDown);
 }
 
-/* ---------------- Ready: render + hotkeys --------------- */
+/* ============================ Ready Hook ============================ */
+
 Hooks.once("ready", async () => {
+  // Boas-vindas (apenas se marcado para exibir)
+  if (game.settings.get("hud-combate-t20", "mostrarBoasVindas")) {
+    showIcarusWelcomeDialog();
+  }
+
   if (!game.settings.get("hud-combate-t20", "exibirBarra")) return;
 
   const controlled = canvas.tokens.controlled[0];
@@ -991,7 +1005,6 @@ Hooks.once("ready", async () => {
   Hooks.on("controlToken", async (token, controlled) => {
     if (controlled) await renderHUD(token.actor);
     else {
-      // Se nenhum token estiver selecionado, ainda mantenha o toggle se a HUD estiver fechada
       if (game.settings.get("hud-combate-t20", "hudFechada")) renderHUDToggle();
       else document.querySelector(".t20-quickbar")?.remove();
     }
@@ -1016,7 +1029,6 @@ Hooks.once("ready", async () => {
     if (tag === "input" || tag === "textarea" || document.activeElement?.isContentEditable) return;
 
     const actor = canvas.tokens.controlled[0]?.actor;
-    // Mesmo sem actor, permitimos abrir a ajuda
     const key = e.key?.toLowerCase();
 
     if (key === "h" || key === "?") return showHotkeysDialog();
