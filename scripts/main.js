@@ -157,12 +157,15 @@ function showIcarusWelcomeDialog() {
     .icarus-welcome { font-family: Segoe UI, sans-serif; color: #fff; }
     .icarus-card {
       background:#1e1e1e; border:1px solid #555; border-radius:12px; padding:14px;
-      box-shadow: 0 0 10px #000a;
+      box-shadow:0 0 10px #000a;
     }
     .icarus-title { display:flex; flex-direction:column; align-items:center; gap:8px; text-align:center; }
-    .icarus-title img { max-width: 70%; height:auto; }
+    .icarus-title img { max-width: 60%; height:auto; }
     .icarus-sub { opacity:.9; font-size:.95rem; }
+
+    /* Grid base: 1 coluna (telas menores) */
     .icarus-grid { display:grid; grid-template-columns: 1fr; gap:12px; margin-top:10px; }
+
     .icarus-box { background:#151515; border:1px solid #444; border-radius:10px; padding:10px; }
     .icarus-box h3 { margin:0 0 6px 0; font-size:1rem; color:#8be9fd; }
     .icarus-list { margin:0; padding-left:18px; line-height:1.45; }
@@ -170,9 +173,19 @@ function showIcarusWelcomeDialog() {
     .icarus-link a { color:#7ee787; text-decoration:none; word-break:break-all; }
     .icarus-link a:hover { text-decoration:underline; }
     .icarus-cta { margin-top:6px; opacity:.95; }
-    .icarus-img-embreve { max-width: 80%; height:auto; border-radius:10px; border:1px solid #444; }
+    .icarus-img-embreve { max-width: 90%; height:auto; border-radius:10px; border:1px solid #444; }
     .icarus-bottom { display:flex; align-items:center; justify-content:center; gap:8px; margin-top:10px; }
     .icarus-checkbox { display:flex; align-items:center; gap:6px; }
+
+    /* ➜ Em telas largas, expande horizontalmente: 2 colunas */
+    @media (min-width: 1024px) {
+      .icarus-grid { grid-template-columns: 1fr 1fr; }
+      .icarus-title img { max-width: 45%; }
+      .icarus-img-embreve { max-width: 80%; }
+    }
+
+    /* Remover scroll interno do conteúdo (o diálogo já vai abrir mais largo) */
+    .window-app.icarus-dialog .window-content { overflow-y: visible; }
   </style>
 
   <div class="icarus-welcome">
@@ -206,7 +219,7 @@ function showIcarusWelcomeDialog() {
           </ul>
         </div>
 
-        <div class="icarus-box icarus-center">
+        <div class="icarus-box icarus-center" style="grid-column: 1 / -1;">
           <h3>Ajude e siga o Icarus</h3>
           <div class="icarus-link">
             🔗 <a href="https://linktr.ee/icarusrpg" target="_blank" rel="noopener">linktr.ee/icarusrpg</a>
@@ -224,6 +237,13 @@ function showIcarusWelcomeDialog() {
   </div>
   `;
 
+  // ➜ Abre o dialogo mais largo: ~70–80% da viewport, com classe para CSS
+  const options = {
+    width: Math.min(Math.floor(window.innerWidth * 0.78), 1200), // ajuste fino aqui
+    resizable: true,
+    classes: ["icarus-dialog"] // aplica o CSS acima
+  };
+
   new Dialog({
     title: "🌟 Projeto Icarus — Boas-vindas",
     content,
@@ -239,7 +259,7 @@ function showIcarusWelcomeDialog() {
       }
     },
     default: "ok"
-  }).render(true);
+  }, options).render(true);
 }
 
 /* ========================= Render da HUD ========================= */
